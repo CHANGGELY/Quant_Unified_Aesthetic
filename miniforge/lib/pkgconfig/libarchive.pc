@@ -1,0 +1,13 @@
+prefix=/Users/chuan/Desktop/xiangmu/客户端/miniforge
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libarchive
+Description: library that can create and read several streaming archive formats
+Version: 3.8.2
+Cflags: -I${includedir}
+Cflags.private: -DLIBARCHIVE_STATIC
+Libs: -L${libdir} -larchive
+Libs.private: -llzo2 -lzstd -llz4 -lbz2  -lz -liconv -L/Users/chuan/Desktop/xiangmu/客户端/miniforge/lib -llzma -L/Users/chuan/Desktop/xiangmu/客户端/miniforge/lib -lxml2
+Requires.private: 

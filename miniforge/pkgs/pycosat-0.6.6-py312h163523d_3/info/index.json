@@ -1,0 +1,17 @@
+{
+  "arch": "arm64",
+  "build": "py312h163523d_3",
+  "build_number": 3,
+  "depends": [
+    "__osx >=11.0",
+    "python >=3.12,<3.13.0a0",
+    "python >=3.12,<3.13.0a0 *_cpython",
+    "python_abi 3.12.* *_cp312"
+  ],
+  "license": "MIT",
+  "name": "pycosat",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1757744906432,
+  "version": "0.6.6"
+}

@@ -1,0 +1,15 @@
+{
+  "arch": "arm64",
+  "build": "hbf9d68e_6",
+  "build_number": 6,
+  "depends": [
+    "__osx >=11.0",
+    "libzlib >=1.3.1,<2.0a0"
+  ],
+  "license": "BSD-3-Clause",
+  "name": "zstd",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1764777166076,
+  "version": "1.5.7"
+}

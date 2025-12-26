@@ -1,0 +1,14 @@
+{
+  "arch": "arm64",
+  "build": "h5505292_0",
+  "build_number": 0,
+  "depends": [
+    "__osx >=11.0"
+  ],
+  "license": "BSD-2-Clause",
+  "name": "libmpdec",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1748393749336,
+  "version": "4.0.0"
+}

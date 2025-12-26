@@ -1,0 +1,20 @@
+{
+  "arch": "arm64",
+  "build": "h54883b1_1",
+  "build_number": 1,
+  "depends": [
+    "libmamba ==2.4.0 h7516003_1",
+    "__osx >=11.0",
+    "libcxx >=19",
+    "reproc-cpp >=14.2,<15.0a0",
+    "zstd >=1.5.7,<1.6.0a0",
+    "reproc >=14.2,<15.0a0",
+    "libmamba >=2.4.0,<2.5.0a0"
+  ],
+  "license": "BSD-3-Clause",
+  "name": "mamba",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1764158592489,
+  "version": "2.4.0"
+}

@@ -1,0 +1,21 @@
+{
+    "arch": "arm64",
+    "build": "h925e9cb_1002",
+    "build_number": 1002,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "__osx >=11.0"
+    ],
+    "fn": "lzo-2.10-h925e9cb_1002.conda",
+    "license": "GPL-2.0-or-later",
+    "license_family": "GPL",
+    "md5": "e56eaa1beab0e7fed559ae9c0264dd88",
+    "name": "lzo",
+    "platform": "osx",
+    "sha256": "db40fd25c6306bfda469f84cddd8b5ebb9aa08d509cecb49dfd0bb8228466d0c",
+    "size": 152755,
+    "subdir": "osx-arm64",
+    "timestamp": 1753889267953,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/lzo-2.10-h925e9cb_1002.conda",
+    "version": "2.10"
+}

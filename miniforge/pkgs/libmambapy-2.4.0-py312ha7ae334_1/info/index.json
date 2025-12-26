@@ -1,0 +1,26 @@
+{
+  "arch": "arm64",
+  "build": "py312ha7ae334_1",
+  "build_number": 1,
+  "depends": [
+    "python",
+    "libmamba ==2.4.0 h7516003_1",
+    "python 3.12.* *_cpython",
+    "libcxx >=19",
+    "__osx >=11.0",
+    "nlohmann_json-abi ==3.12.0",
+    "zstd >=1.5.7,<1.6.0a0",
+    "libmamba >=2.4.0,<2.5.0a0",
+    "openssl >=3.5.4,<4.0a0",
+    "pybind11-abi ==11",
+    "yaml-cpp >=0.8.0,<0.9.0a0",
+    "fmt >=12.0.0,<12.1.0a0",
+    "python_abi 3.12.* *_cp312"
+  ],
+  "license": "BSD-3-Clause",
+  "name": "libmambapy",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1764158592492,
+  "version": "2.4.0"
+}

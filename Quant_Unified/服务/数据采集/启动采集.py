@@ -97,25 +97,14 @@ AUTO_FILL_MAX_GAPS_PER_SYMBOL_DAY = 3
 AUTO_FILL_MAX_WINDOW_MS = 6 * 60 * 60 * 1000
 
 # ==========================================
-# 4. 日志配置 (带自动轮转)
+# 4. 日志配置
 # ==========================================
-from logging.handlers import RotatingFileHandler
-
-# 日志轮转配置
-LOG_MAX_BYTES = 50 * 1024 * 1024  # 50MB 触发轮转
-LOG_BACKUP_COUNT = 3              # 保留最近 3 份
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        RotatingFileHandler(
-            LOG_DIR / "market_collector.log",
-            maxBytes=LOG_MAX_BYTES,
-            backupCount=LOG_BACKUP_COUNT,
-            encoding='utf-8'
-        )
+        logging.FileHandler(LOG_DIR / "market_collector.log", encoding='utf-8')
     ]
 )
 logger = logging.getLogger("数据采集器")

@@ -1,0 +1,17 @@
+{
+  "paths": [
+    {
+      "_path": "lib/libmpdec.4.0.0.dylib",
+      "path_type": "hardlink",
+      "sha256": "b21e64214036ab3896a61e0ab216d90d377f90d4118ec2c4bb55bba1918cb3a9",
+      "size_in_bytes": 204752
+    },
+    {
+      "_path": "lib/libmpdec.4.dylib",
+      "path_type": "softlink",
+      "sha256": "b21e64214036ab3896a61e0ab216d90d377f90d4118ec2c4bb55bba1918cb3a9",
+      "size_in_bytes": 204752
+    }
+  ],
+  "paths_version": 1
+}

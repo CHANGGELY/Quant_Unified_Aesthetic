@@ -1,0 +1,43 @@
+{
+  "name": "liblzma",
+  "version": "5.8.1",
+  "build": "h39f12f2_2",
+  "build_number": 2,
+  "channel": "https://conda.anaconda.org/conda-forge/osx-arm64",
+  "subdir": "osx-arm64",
+  "fn": "liblzma-5.8.1-h39f12f2_2.conda",
+  "md5": "d6df911d4564d77c4374b02552cb17d1",
+  "url": "https://conda.anaconda.org/conda-forge/osx-arm64/liblzma-5.8.1-h39f12f2_2.conda",
+  "sha256": "0cb92a9e026e7bd4842f410a5c5c665c89b2eb97794ffddba519a626b8ce7285",
+  "depends": [
+    "__osx >=11.0"
+  ],
+  "constrains": [
+    "xz 5.8.1.*"
+  ],
+  "license": "0BSD",
+  "timestamp": 1749230283000,
+  "size": 92286,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/Users/chuan/Desktop/xiangmu/\u5ba2\u6237\u7aef/miniforge/pkgs/liblzma-5.8.1-h39f12f2_2.conda",
+  "extracted_package_dir": "/Users/chuan/Desktop/xiangmu/\u5ba2\u6237\u7aef/miniforge/pkgs/liblzma-5.8.1-h39f12f2_2",
+  "files": [
+    "lib/liblzma.5.dylib"
+  ],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": [
+      {
+        "_path": "lib/liblzma.5.dylib",
+        "path_type": "hardlink",
+        "sha256": "5a159a99b616687d4335ce3bed2aac4fd348cb730a34bb1614c03254a65d6ae8",
+        "size_in_bytes": 201152,
+        "sha256_in_prefix": "5a159a99b616687d4335ce3bed2aac4fd348cb730a34bb1614c03254a65d6ae8"
+      }
+    ]
+  },
+  "link": {
+    "source": "/Users/chuan/Desktop/xiangmu/\u5ba2\u6237\u7aef/miniforge/pkgs/liblzma-5.8.1-h39f12f2_2",
+    "type": 1
+  }
+}

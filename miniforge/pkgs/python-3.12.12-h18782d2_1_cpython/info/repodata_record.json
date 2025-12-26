@@ -1,0 +1,34 @@
+{
+    "arch": "arm64",
+    "build": "h18782d2_1_cpython",
+    "build_number": 1,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "constrains": [
+        "python_abi 3.12.* *_cp312"
+    ],
+    "depends": [
+        "__osx >=11.0",
+        "bzip2 >=1.0.8,<2.0a0",
+        "libexpat >=2.7.1,<3.0a0",
+        "libffi >=3.5.2,<3.6.0a0",
+        "liblzma >=5.8.1,<6.0a0",
+        "libsqlite >=3.50.4,<4.0a0",
+        "libzlib >=1.3.1,<2.0a0",
+        "ncurses >=6.5,<7.0a0",
+        "openssl >=3.5.4,<4.0a0",
+        "readline >=8.2,<9.0a0",
+        "tk >=8.6.13,<8.7.0a0",
+        "tzdata"
+    ],
+    "fn": "python-3.12.12-h18782d2_1_cpython.conda",
+    "license": "Python-2.0",
+    "md5": "0322f2ddca2cafbf34ef3ddbea100f73",
+    "name": "python",
+    "platform": "osx",
+    "sha256": "626da9bb78459ce541407327d1e22ee673fd74e9103f1a0e0f4e3967ad0a23a7",
+    "size": 12062421,
+    "subdir": "osx-arm64",
+    "timestamp": 1761176476561,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/python-3.12.12-h18782d2_1_cpython.conda",
+    "version": "3.12.12"
+}

@@ -1,0 +1,16 @@
+- script:
+    content: |-
+      test ! -f "${PREFIX}/lib/libyaml-cpp.a"
+      cmake -G Ninja -S test/ -B build-test/ ${CMAKE_ARGS}
+      cmake --build build-test/
+      cmake --build build-test/ --target test
+    cwd: etc/conda/test-files/yaml-cpp/0
+  requirements:
+    build:
+    - clang_osx-arm64 =18
+    - clangxx_osx-arm64 =18
+    - cmake <4
+    - ninja
+  files:
+    recipe:
+    - test/

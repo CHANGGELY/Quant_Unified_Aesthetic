@@ -1,0 +1,109 @@
+{
+  "paths": [
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/INSTALLER",
+      "path_type": "hardlink",
+      "sha256": "d0edee15f91b406f3f99726e44eb990be6e34fd0345b52b910c568e0eef6a2a8",
+      "size_in_bytes": 5
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/METADATA",
+      "path_type": "hardlink",
+      "sha256": "856c42ca5c61ed8b440a0e8b10b3ffcc9557397a500ee223c10d9ff9945bf80b",
+      "size_in_bytes": 8091
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/RECORD",
+      "path_type": "hardlink",
+      "sha256": "45dde2ad2abe0a0d279d3568e560d466c6316ca25892c73cc3eee81445f5ae8f",
+      "size_in_bytes": 1265
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/REQUESTED",
+      "path_type": "hardlink",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_in_bytes": 0
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/WHEEL",
+      "path_type": "hardlink",
+      "sha256": "0a5b57377950bd76c7c4a0ed883c16d1137317cb365b206e3db3805ff65e4250",
+      "size_in_bytes": 109
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/direct_url.json",
+      "path_type": "hardlink",
+      "sha256": "840615ce9bee56c74f4e46fab61516ecd3b68ec1d219b3bc955a9feaa51e1398",
+      "size_in_bytes": 102
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/licenses/COPYING",
+      "path_type": "hardlink",
+      "sha256": "492dedba85da5872f78e6091bcd1fea474d660d35acb4dee964b8aab3f007427",
+      "size_in_bytes": 614
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack-1.1.2.dist-info/top_level.txt",
+      "path_type": "hardlink",
+      "sha256": "dadca4498d695dd880db16130d1ea33f0d2a239646c518a1ca17f84b9859c979",
+      "size_in_bytes": 8
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/__init__.py",
+      "path_type": "hardlink",
+      "sha256": "440f2072a2b5ed8a64c419cdc172556b5a1ad8bca058381f1759c0d4d3f0de6a",
+      "size_in_bytes": 1109
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/__pycache__/__init__.cpython-312.pyc",
+      "path_type": "hardlink",
+      "sha256": "242577452918437488ec2c97ab27f15876b695fd0cd51099ed00ea6af2c5c55a",
+      "size_in_bytes": 1693
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/__pycache__/exceptions.cpython-312.pyc",
+      "path_type": "hardlink",
+      "sha256": "1433c70c046d5ae9861b711e912e7bbc4c76facaf62377a2f03fa14c7449c5af",
+      "size_in_bytes": 1979
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/__pycache__/ext.cpython-312.pyc",
+      "path_type": "hardlink",
+      "sha256": "d06e50213768d3b7adcc06a4615080d6e5a66ecf56bf5ecd45b358723e907f39",
+      "size_in_bytes": 8247
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/__pycache__/fallback.cpython-312.pyc",
+      "path_type": "hardlink",
+      "sha256": "342d25e5d82123509328daa88d092a105cdabe1ad1ab77e4634bbe9ec15f991a",
+      "size_in_bytes": 41444
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/_cmsgpack.cpython-312-darwin.so",
+      "file_mode": "binary",
+      "path_type": "hardlink",
+      "prefix_placeholder": "/Users/runner/miniforge3/conda-bld/msgpack-python_1762504198966/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_plac",
+      "sha256": "349ccdf11db365fad07a39f5e5183db755961b6c9fe5163c160c4eb4950b5d44",
+      "size_in_bytes": 199936
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/exceptions.py",
+      "path_type": "hardlink",
+      "sha256": "7424d67a2f1da64accb100dc8d093be004e5f47b08047d326edf3338f36a3187",
+      "size_in_bytes": 1081
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/ext.py",
+      "path_type": "hardlink",
+      "sha256": "92d789bf4de7f6d633779a28df1628a554e8e2f45a031a27050409857a21659a",
+      "size_in_bytes": 5726
+    },
+    {
+      "_path": "lib/python3.12/site-packages/msgpack/fallback.py",
+      "path_type": "hardlink",
+      "sha256": "d20d4fce9d2fb66044989e70f45decffe24c55444ff114b81b571ce5345a02c2",
+      "size_in_bytes": 32390
+    }
+  ],
+  "paths_version": 1
+}

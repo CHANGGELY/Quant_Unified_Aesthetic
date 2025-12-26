@@ -1,0 +1,15 @@
+{
+  "arch": "arm64",
+  "build": "ha1acc90_0",
+  "build_number": 0,
+  "depends": [
+    "libcxx >=18",
+    "__osx >=11.0"
+  ],
+  "license": "MIT",
+  "name": "yaml-cpp",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1745308075886,
+  "version": "0.8.0"
+}

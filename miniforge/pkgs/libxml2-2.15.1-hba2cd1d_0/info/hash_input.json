@@ -1,0 +1,15 @@
+{
+  "c_stdlib": "macosx_deployment_target",
+  "libiconv": "1",
+  "with_icu": "no",
+  "c_compiler_version": "19",
+  "liblzma_devel": "5",
+  "CONDA_BUILD_SYSROOT": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.0.sdk",
+  "channel_targets": "conda-forge main",
+  "libxml2": "2.13",
+  "c_compiler": "clang_bootstrap",
+  "zlib": "1",
+  "target_platform": "osx-arm64",
+  "c_stdlib_version": "11.0",
+  "__osx": "__osx >=11.0"
+}

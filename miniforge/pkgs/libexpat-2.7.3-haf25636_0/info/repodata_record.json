@@ -1,0 +1,24 @@
+{
+    "arch": "arm64",
+    "build": "haf25636_0",
+    "build_number": 0,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "constrains": [
+        "expat 2.7.3.*"
+    ],
+    "depends": [
+        "__osx >=11.0"
+    ],
+    "fn": "libexpat-2.7.3-haf25636_0.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "md5": "b79875dbb5b1db9a4a22a4520f918e1a",
+    "name": "libexpat",
+    "platform": "osx",
+    "sha256": "fce22610ecc95e6d149e42a42fbc3cc9d9179bd4eb6232639a60f06e080eec98",
+    "size": 67800,
+    "subdir": "osx-arm64",
+    "timestamp": 1763549994166,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/libexpat-2.7.3-haf25636_0.conda",
+    "version": "2.7.3"
+}

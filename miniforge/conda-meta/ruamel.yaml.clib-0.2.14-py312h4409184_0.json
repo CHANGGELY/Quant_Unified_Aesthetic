@@ -1,0 +1,109 @@
+{
+    "arch": "arm64",
+    "build": "py312h4409184_0",
+    "build_number": 0,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "__osx >=11.0",
+        "python >=3.12,<3.13.0a0",
+        "python >=3.12,<3.13.0a0 *_cpython",
+        "python_abi 3.12.* *_cp312"
+    ],
+    "extracted_package_dir": "/Users/chuan/Desktop/xiangmu/客户端/miniforge/pkgs/ruamel.yaml.clib-0.2.14-py312h4409184_0",
+    "files": [
+        "lib/python3.12/site-packages/_ruamel_yaml.cpython-312-darwin.so",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/INSTALLER",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/METADATA",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/RECORD",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/REQUESTED",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/WHEEL",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/direct_url.json",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/licenses/LICENSE",
+        "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/top_level.txt"
+    ],
+    "fn": "ruamel.yaml.clib-0.2.14-py312h4409184_0.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "link": {
+        "source": "/Users/chuan/Desktop/xiangmu/客户端/miniforge/pkgs/ruamel.yaml.clib-0.2.14-py312h4409184_0",
+        "type": 1
+    },
+    "md5": "701d9a8bcd57c5221df9b2384a6aef93",
+    "name": "ruamel.yaml.clib",
+    "package_tarball_full_path": "/Users/chuan/Desktop/xiangmu/客户端/miniforge/pkgs/ruamel.yaml.clib-0.2.14-py312h4409184_0.tar.bz2",
+    "paths_data": {
+        "paths": [
+            {
+                "_path": "lib/python3.12/site-packages/_ruamel_yaml.cpython-312-darwin.so",
+                "path_type": "hardlink",
+                "sha256": "660cafe35eab61e553d896b2dce8848ef355b22a06bb34c12b5e24704a394ab9",
+                "sha256_in_prefix": "de90dee575573caf735781d1c3e471a29fd1f8b5c4d7b02bd756993bc4967b74",
+                "size_in_bytes": 337824
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/INSTALLER",
+                "path_type": "hardlink",
+                "sha256": "d0edee15f91b406f3f99726e44eb990be6e34fd0345b52b910c568e0eef6a2a8",
+                "sha256_in_prefix": "d0edee15f91b406f3f99726e44eb990be6e34fd0345b52b910c568e0eef6a2a8",
+                "size_in_bytes": 5
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/METADATA",
+                "path_type": "hardlink",
+                "sha256": "1c11b5674037e9864b22d2447247f8a3e9cd97a5cd20ad81c9e4b7f2535e87cc",
+                "sha256_in_prefix": "1c11b5674037e9864b22d2447247f8a3e9cd97a5cd20ad81c9e4b7f2535e87cc",
+                "size_in_bytes": 3223
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/RECORD",
+                "path_type": "hardlink",
+                "sha256": "28dfdfff28c14c861e34dff3ebb9451d7d77bb7cfa3100d63090b71c33efb2e3",
+                "sha256_in_prefix": "28dfdfff28c14c861e34dff3ebb9451d7d77bb7cfa3100d63090b71c33efb2e3",
+                "size_in_bytes": 847
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/REQUESTED",
+                "path_type": "hardlink",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "sha256_in_prefix": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/WHEEL",
+                "path_type": "hardlink",
+                "sha256": "0a5b57377950bd76c7c4a0ed883c16d1137317cb365b206e3db3805ff65e4250",
+                "sha256_in_prefix": "0a5b57377950bd76c7c4a0ed883c16d1137317cb365b206e3db3805ff65e4250",
+                "size_in_bytes": 109
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/direct_url.json",
+                "path_type": "hardlink",
+                "sha256": "d4c78da42766aa372817e6e7e91e38fc1055a205c067f55a4402a0a668065331",
+                "sha256_in_prefix": "d4c78da42766aa372817e6e7e91e38fc1055a205c067f55a4402a0a668065331",
+                "size_in_bytes": 104
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/licenses/LICENSE",
+                "path_type": "hardlink",
+                "sha256": "f8ad7efe71dde909f2d694f7dc69470d3dbe07c001c0b30c6bd9951e472077fa",
+                "sha256_in_prefix": "f8ad7efe71dde909f2d694f7dc69470d3dbe07c001c0b30c6bd9951e472077fa",
+                "size_in_bytes": 1121
+            },
+            {
+                "_path": "lib/python3.12/site-packages/ruamel_yaml_clib-0.2.14.dist-info/top_level.txt",
+                "path_type": "hardlink",
+                "sha256": "d6c25b6b7206776b1a6f7bbfea45b234f4bcc86fc01ed3f425d99a0e80785c1d",
+                "sha256_in_prefix": "d6c25b6b7206776b1a6f7bbfea45b234f4bcc86fc01ed3f425d99a0e80785c1d",
+                "size_in_bytes": 20
+            }
+        ],
+        "paths_version": 1
+    },
+    "platform": "osx",
+    "requested_spec": "ruamel.yaml.clib==0.2.14=py312h4409184_0",
+    "sha256": "6e3b59e64c26f62562834752476b7308e72b9aada1a85ee98d3b57c4f7ab9139",
+    "size": 116030,
+    "subdir": "osx-arm64",
+    "timestamp": 1760564523506,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/ruamel.yaml.clib-0.2.14-py312h4409184_0.conda",
+    "version": "0.2.14"
+}

@@ -1,0 +1,1 @@
+["ripgrep", "ninja", "clangxx_osx-arm64 19.*", "xorg-libx11", "clang_osx-arm64 19.*", "macosx_deployment_target_osx-arm64 11.0.*", "cmake"]

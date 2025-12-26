@@ -1,0 +1,25 @@
+{
+    "arch": "arm64",
+    "build": "py312h84eede6_1",
+    "build_number": 1,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "__osx >=11.0",
+        "libcxx >=19",
+        "python >=3.12,<3.13.0a0",
+        "python >=3.12,<3.13.0a0 *_cpython",
+        "python_abi 3.12.* *_cp312"
+    ],
+    "fn": "msgpack-python-1.1.2-py312h84eede6_1.conda",
+    "license": "Apache-2.0",
+    "license_family": "Apache",
+    "md5": "e3973f0ac5ac854bf86f0d5674a1a289",
+    "name": "msgpack-python",
+    "platform": "osx",
+    "sha256": "1540339678e13365001453fdcb698887075a2b326d5fab05cfd0f4fdefae4eab",
+    "size": 91268,
+    "subdir": "osx-arm64",
+    "timestamp": 1762504467174,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/msgpack-python-1.1.2-py312h84eede6_1.conda",
+    "version": "1.1.2"
+}

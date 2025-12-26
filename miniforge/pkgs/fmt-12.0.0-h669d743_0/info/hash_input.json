@@ -1,0 +1,11 @@
+{
+  "cxx_compiler": "clangxx",
+  "cxx_compiler_version": "19",
+  "fmt": "11.2",
+  "channel_targets": "conda-forge main",
+  "target_platform": "osx-arm64",
+  "CONDA_BUILD_SYSROOT": "/Applications/Xcode_16.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.0.sdk",
+  "c_stdlib_version": "11.0",
+  "c_stdlib": "macosx_deployment_target",
+  "__osx": "__osx >=11.0"
+}

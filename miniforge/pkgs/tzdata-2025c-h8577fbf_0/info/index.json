@@ -1,0 +1,10 @@
+{
+  "build": "h8577fbf_0",
+  "build_number": 0,
+  "license": "LicenseRef-Public-Domain",
+  "name": "tzdata",
+  "noarch": "generic",
+  "subdir": "noarch",
+  "timestamp": 1765745742795,
+  "version": "2025c"
+}

@@ -1,0 +1,67 @@
+{
+    "arch": "arm64",
+    "build": "h4f10f1e_0",
+    "build_number": 0,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "__osx >=11.0",
+        "libcxx >=19"
+    ],
+    "extracted_package_dir": "/Users/chuan/Desktop/xiangmu/客户端/miniforge/pkgs/cpp-expected-1.3.1-h4f10f1e_0",
+    "files": [
+        "include/tl/expected.hpp",
+        "share/cmake/tl-expected/tl-expected-config-version.cmake",
+        "share/cmake/tl-expected/tl-expected-config.cmake",
+        "share/cmake/tl-expected/tl-expected-targets.cmake"
+    ],
+    "fn": "cpp-expected-1.3.1-h4f10f1e_0.conda",
+    "license": "CC0-1.0",
+    "link": {
+        "source": "/Users/chuan/Desktop/xiangmu/客户端/miniforge/pkgs/cpp-expected-1.3.1-h4f10f1e_0",
+        "type": 1
+    },
+    "md5": "5cb4f9b93055faf7b6ae76da6123f927",
+    "name": "cpp-expected",
+    "package_tarball_full_path": "/Users/chuan/Desktop/xiangmu/客户端/miniforge/pkgs/cpp-expected-1.3.1-h4f10f1e_0.tar.bz2",
+    "paths_data": {
+        "paths": [
+            {
+                "_path": "include/tl/expected.hpp",
+                "path_type": "hardlink",
+                "sha256": "0788f7d544a2fdec1dd7a794e1e9863ad4cc6a8817982b6fd93fd98724b9fa19",
+                "sha256_in_prefix": "0788f7d544a2fdec1dd7a794e1e9863ad4cc6a8817982b6fd93fd98724b9fa19",
+                "size_in_bytes": 94709
+            },
+            {
+                "_path": "share/cmake/tl-expected/tl-expected-config-version.cmake",
+                "path_type": "hardlink",
+                "sha256": "4b4b9bceb39058fd9079ddf7f4978185fe9e193733c29e439d8c4c1e2c5e84b8",
+                "sha256_in_prefix": "4b4b9bceb39058fd9079ddf7f4978185fe9e193733c29e439d8c4c1e2c5e84b8",
+                "size_in_bytes": 2303
+            },
+            {
+                "_path": "share/cmake/tl-expected/tl-expected-config.cmake",
+                "path_type": "hardlink",
+                "sha256": "e81d5d1be789466fbf2bebff6818ac0879ccf13ef5f4e4566f91f1cfd47e0f08",
+                "sha256_in_prefix": "e81d5d1be789466fbf2bebff6818ac0879ccf13ef5f4e4566f91f1cfd47e0f08",
+                "size_in_bytes": 949
+            },
+            {
+                "_path": "share/cmake/tl-expected/tl-expected-targets.cmake",
+                "path_type": "hardlink",
+                "sha256": "2afa846f30f0cef3c24a76d3c020d4f61ded3d1f9863b9125942c078a4b52e39",
+                "sha256_in_prefix": "2afa846f30f0cef3c24a76d3c020d4f61ded3d1f9863b9125942c078a4b52e39",
+                "size_in_bytes": 4141
+            }
+        ],
+        "paths_version": 1
+    },
+    "platform": "osx",
+    "requested_spec": "cpp-expected==1.3.1=h4f10f1e_0",
+    "sha256": "a7380056125a29ddc4c4efc4e39670bc8002609c70f143d92df801b42e0b486f",
+    "size": 24960,
+    "subdir": "osx-arm64",
+    "timestamp": 1756734870487,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/cpp-expected-1.3.1-h4f10f1e_0.conda",
+    "version": "1.3.1"
+}

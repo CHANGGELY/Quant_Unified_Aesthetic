@@ -1,0 +1,9 @@
+libdir=/Users/chuan/Desktop/xiangmu/客户端/miniforge/lib
+includedir=/Users/chuan/Desktop/xiangmu/客户端/miniforge/include
+
+Name: libsolvext
+Description: Library for reading repositories
+Version: 0.7.35
+Requires: libsolv
+Libs: -L${libdir} -lsolvext
+Cflags: -I${includedir}

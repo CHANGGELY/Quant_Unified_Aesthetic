@@ -1,0 +1,15 @@
+{
+  "arch": "arm64",
+  "build": "h4f10f1e_0",
+  "build_number": 0,
+  "depends": [
+    "__osx >=11.0",
+    "libcxx >=19"
+  ],
+  "license": "CC0-1.0",
+  "name": "cpp-expected",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1756734870487,
+  "version": "1.3.1"
+}

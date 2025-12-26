@@ -1,0 +1,48 @@
+{
+  "name": "libmpdec",
+  "version": "4.0.0",
+  "build": "h5505292_0",
+  "build_number": 0,
+  "channel": "https://conda.anaconda.org/conda-forge/osx-arm64",
+  "subdir": "osx-arm64",
+  "fn": "libmpdec-4.0.0-h5505292_0.conda",
+  "md5": "85ccccb47823dd9f7a99d2c7f530342f",
+  "url": "https://conda.anaconda.org/conda-forge/osx-arm64/libmpdec-4.0.0-h5505292_0.conda",
+  "sha256": "0a1875fc1642324ebd6c4ac864604f3f18f57fbcf558a8264f6ced028a3c75b2",
+  "depends": [
+    "__osx >=11.0"
+  ],
+  "constrains": [],
+  "license": "BSD-2-Clause",
+  "timestamp": 1748393749000,
+  "size": 71829,
+  "requested_spec": "None",
+  "package_tarball_full_path": "/Users/chuan/Desktop/xiangmu/\u5ba2\u6237\u7aef/miniforge/pkgs/libmpdec-4.0.0-h5505292_0.conda",
+  "extracted_package_dir": "/Users/chuan/Desktop/xiangmu/\u5ba2\u6237\u7aef/miniforge/pkgs/libmpdec-4.0.0-h5505292_0",
+  "files": [
+    "lib/libmpdec.4.0.0.dylib",
+    "lib/libmpdec.4.dylib"
+  ],
+  "paths_data": {
+    "paths_version": 1,
+    "paths": [
+      {
+        "_path": "lib/libmpdec.4.0.0.dylib",
+        "path_type": "hardlink",
+        "sha256": "b21e64214036ab3896a61e0ab216d90d377f90d4118ec2c4bb55bba1918cb3a9",
+        "size_in_bytes": 204752,
+        "sha256_in_prefix": "b21e64214036ab3896a61e0ab216d90d377f90d4118ec2c4bb55bba1918cb3a9"
+      },
+      {
+        "_path": "lib/libmpdec.4.dylib",
+        "path_type": "softlink",
+        "sha256": "b21e64214036ab3896a61e0ab216d90d377f90d4118ec2c4bb55bba1918cb3a9",
+        "size_in_bytes": 204752
+      }
+    ]
+  },
+  "link": {
+    "source": "/Users/chuan/Desktop/xiangmu/\u5ba2\u6237\u7aef/miniforge/pkgs/libmpdec-4.0.0-h5505292_0",
+    "type": 1
+  }
+}

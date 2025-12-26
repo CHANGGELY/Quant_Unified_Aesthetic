@@ -1,0 +1,14 @@
+{
+  "c_stdlib_version": "11.0",
+  "hardening": "none",
+  "cxx_compiler": "clang_bootstrap",
+  "cxx_compiler_version": "*",
+  "sys_abi": "post-12",
+  "c_compiler_version": "*",
+  "c_compiler": "clang_bootstrap",
+  "channel_targets": "conda-forge main",
+  "CONDA_BUILD_SYSROOT": "/Applications/Xcode_15.4.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.0.sdk",
+  "target_platform": "osx-arm64",
+  "c_stdlib": "macosx_deployment_target",
+  "__osx": "__osx >=11.0"
+}

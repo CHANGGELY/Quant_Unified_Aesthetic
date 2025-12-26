@@ -1,0 +1,8 @@
+libdir=/Users/runner/miniforge3/conda-bld/bld/rattler-build_libsolv_1754325703/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_plac/lib
+includedir=/Users/runner/miniforge3/conda-bld/bld/rattler-build_libsolv_1754325703/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_plac/include
+
+Name: libsolv
+Description: Library for solving packages
+Version: 0.7.35
+Libs: -L${libdir} -lsolv
+Cflags: -I${includedir}

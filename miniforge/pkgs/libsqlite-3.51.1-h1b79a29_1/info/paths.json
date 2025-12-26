@@ -1,0 +1,43 @@
+{
+  "paths": [
+    {
+      "_path": "include/sqlite3.h",
+      "path_type": "hardlink",
+      "sha256": "4340a24cda7bc436d62459c3c5237f67b9ab716ddca872faf8052d0ce0d97119",
+      "size_in_bytes": 671786
+    },
+    {
+      "_path": "include/sqlite3ext.h",
+      "path_type": "hardlink",
+      "sha256": "ea81fb7bd05882e0e0b92c4d60f677b205f7f1fbf085f218b12f0b5b3f0b9e48",
+      "size_in_bytes": 38632
+    },
+    {
+      "_path": "lib/libsqlite3.0.dylib",
+      "path_type": "softlink",
+      "sha256": "2c5f0fd0e1e4cd275b84f5f9687d6367388257650bfeb84652ad0111cf455149",
+      "size_in_bytes": 1729408
+    },
+    {
+      "_path": "lib/libsqlite3.3.51.1.dylib",
+      "path_type": "hardlink",
+      "sha256": "2c5f0fd0e1e4cd275b84f5f9687d6367388257650bfeb84652ad0111cf455149",
+      "size_in_bytes": 1729408
+    },
+    {
+      "_path": "lib/libsqlite3.dylib",
+      "path_type": "softlink",
+      "sha256": "2c5f0fd0e1e4cd275b84f5f9687d6367388257650bfeb84652ad0111cf455149",
+      "size_in_bytes": 1729408
+    },
+    {
+      "_path": "lib/pkgconfig/sqlite3.pc",
+      "file_mode": "text",
+      "path_type": "hardlink",
+      "prefix_placeholder": "/Users/runner/miniforge3/conda-bld/sqlite-split_1766319470819/_h_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeh",
+      "sha256": "15e41dccb12758caca94569ada992561cc6b0f4f62f707f426301733ce29d794",
+      "size_in_bytes": 515
+    }
+  ],
+  "paths_version": 1
+}

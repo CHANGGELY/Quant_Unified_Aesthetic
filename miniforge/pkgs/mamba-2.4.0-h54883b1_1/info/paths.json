@@ -1,0 +1,27 @@
+{
+  "paths": [
+    {
+      "_path": "bin/mamba",
+      "path_type": "hardlink",
+      "file_mode": "binary",
+      "prefix_placeholder": "/Users/runner/miniforge3/conda-bld/bld/rattler-build_mamba_1764158592/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeh",
+      "sha256": "298c3c37ed5001b9456e5a32e9bafce62843c0db10a11113c62f760cae38e64d",
+      "size_in_bytes": 1622448
+    },
+    {
+      "_path": "condabin/mamba",
+      "path_type": "softlink",
+      "sha256": "298c3c37ed5001b9456e5a32e9bafce62843c0db10a11113c62f760cae38e64d",
+      "size_in_bytes": 12
+    },
+    {
+      "_path": "etc/profile.d/mamba.sh",
+      "path_type": "hardlink",
+      "file_mode": "text",
+      "prefix_placeholder": "/Users/runner/miniforge3/conda-bld/bld/rattler-build_mamba_1764158592/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placeh",
+      "sha256": "213c32baa160459acc6006a2fc7e0fc1e92f315e2ecdd0d17eac08fbb738e3b5",
+      "size_in_bytes": 2336
+    }
+  ],
+  "paths_version": 1
+}

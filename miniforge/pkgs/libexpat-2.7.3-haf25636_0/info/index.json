@@ -1,0 +1,18 @@
+{
+  "arch": "arm64",
+  "build": "haf25636_0",
+  "build_number": 0,
+  "constrains": [
+    "expat 2.7.3.*"
+  ],
+  "depends": [
+    "__osx >=11.0"
+  ],
+  "license": "MIT",
+  "license_family": "MIT",
+  "name": "libexpat",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1763549994166,
+  "version": "2.7.3"
+}

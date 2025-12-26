@@ -1,0 +1,21 @@
+{
+    "arch": "arm64",
+    "build": "he5f378a_0",
+    "build_number": 0,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "__osx >=11.0"
+    ],
+    "fn": "libffi-3.5.2-he5f378a_0.conda",
+    "license": "MIT",
+    "license_family": "MIT",
+    "md5": "411ff7cd5d1472bba0f55c0faf04453b",
+    "name": "libffi",
+    "platform": "osx",
+    "sha256": "9b8acdf42df61b7bfe8bdc545c016c29e61985e79748c64ad66df47dbc2e295f",
+    "size": 40251,
+    "subdir": "osx-arm64",
+    "timestamp": 1760295839166,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/libffi-3.5.2-he5f378a_0.conda",
+    "version": "3.5.2"
+}

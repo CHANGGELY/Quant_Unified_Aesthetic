@@ -1,0 +1,11 @@
+prefix=/Users/runner/miniforge3/conda-bld/bld/rattler-build_yaml-cpp_1745308075/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_pla
+exec_prefix=${prefix}
+includedir=/Users/runner/miniforge3/conda-bld/bld/rattler-build_yaml-cpp_1745308075/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_pla/include
+libdir=/Users/runner/miniforge3/conda-bld/bld/rattler-build_yaml-cpp_1745308075/host_env_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_placehold_pla/lib
+
+Name: Yaml-cpp
+Description: A YAML parser and emitter for C++
+Version: 0.8.0
+Requires:
+Libs: -L${libdir} -lyaml-cpp
+Cflags: -I${includedir}

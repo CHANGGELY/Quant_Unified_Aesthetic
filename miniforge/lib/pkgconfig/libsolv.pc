@@ -1,0 +1,8 @@
+libdir=/Users/chuan/Desktop/xiangmu/客户端/miniforge/lib
+includedir=/Users/chuan/Desktop/xiangmu/客户端/miniforge/include
+
+Name: libsolv
+Description: Library for solving packages
+Version: 0.7.35
+Libs: -L${libdir} -lsolv
+Cflags: -I${includedir}

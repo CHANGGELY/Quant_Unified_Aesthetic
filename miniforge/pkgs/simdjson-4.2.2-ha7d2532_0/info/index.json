@@ -1,0 +1,15 @@
+{
+  "arch": "arm64",
+  "build": "ha7d2532_0",
+  "build_number": 0,
+  "depends": [
+    "__osx >=11.0",
+    "libcxx >=19"
+  ],
+  "license": "Apache-2.0",
+  "name": "simdjson",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1762971407909,
+  "version": "4.2.2"
+}

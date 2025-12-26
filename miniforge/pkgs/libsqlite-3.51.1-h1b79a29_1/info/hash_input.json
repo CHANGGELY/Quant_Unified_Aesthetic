@@ -1,0 +1,13 @@
+{
+  "zlib": "1",
+  "c_stdlib_version": "11.0",
+  "channel_targets": "conda-forge main",
+  "c_compiler_version": "19",
+  "CONDA_BUILD_SYSROOT": "/opt/conda-sdks/MacOSX11.0.sdk",
+  "with_icu": "false",
+  "c_stdlib": "macosx_deployment_target",
+  "c_compiler": "clang",
+  "target_platform": "osx-arm64",
+  "libsqlite": "3",
+  "__osx": "__osx >=11.0"
+}

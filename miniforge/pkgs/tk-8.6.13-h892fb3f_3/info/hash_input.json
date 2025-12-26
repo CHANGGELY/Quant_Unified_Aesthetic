@@ -1,0 +1,13 @@
+{
+  "tk": "8.6",
+  "channel_targets": "conda-forge main",
+  "c_stdlib_version": "11.0",
+  "c_compiler_version": "18",
+  "zlib": "1",
+  "target_platform": "osx-arm64",
+  "CONDA_BUILD_SYSROOT": "/Applications/Xcode_15.2.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.0.sdk",
+  "c_compiler": "clang",
+  "c_stdlib": "macosx_deployment_target",
+  "tk_variant": "noxft",
+  "__osx": "__osx >=11.0"
+}

@@ -1,0 +1,19 @@
+{
+  "arch": "arm64",
+  "build": "py312h1b4d9a2_1",
+  "build_number": 1,
+  "depends": [
+    "__osx >=11.0",
+    "libffi >=3.5.2,<3.6.0a0",
+    "pycparser",
+    "python >=3.12,<3.13.0a0",
+    "python >=3.12,<3.13.0a0 *_cpython",
+    "python_abi 3.12.* *_cp312"
+  ],
+  "license": "MIT",
+  "name": "cffi",
+  "platform": "osx",
+  "subdir": "osx-arm64",
+  "timestamp": 1761203317419,
+  "version": "2.0.0"
+}

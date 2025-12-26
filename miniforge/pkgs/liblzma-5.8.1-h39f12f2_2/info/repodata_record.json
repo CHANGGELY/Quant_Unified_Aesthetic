@@ -1,0 +1,23 @@
+{
+    "arch": "arm64",
+    "build": "h39f12f2_2",
+    "build_number": 2,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "constrains": [
+        "xz 5.8.1.*"
+    ],
+    "depends": [
+        "__osx >=11.0"
+    ],
+    "fn": "liblzma-5.8.1-h39f12f2_2.conda",
+    "license": "0BSD",
+    "md5": "d6df911d4564d77c4374b02552cb17d1",
+    "name": "liblzma",
+    "platform": "osx",
+    "sha256": "0cb92a9e026e7bd4842f410a5c5c665c89b2eb97794ffddba519a626b8ce7285",
+    "size": 92286,
+    "subdir": "osx-arm64",
+    "timestamp": 1749230283517,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/liblzma-5.8.1-h39f12f2_2.conda",
+    "version": "5.8.1"
+}

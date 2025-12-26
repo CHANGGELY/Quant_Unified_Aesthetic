@@ -1,0 +1,23 @@
+{
+    "arch": "arm64",
+    "build": "py312h81bd7bf_2",
+    "build_number": 2,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "python >=3.12,<3.13.0a0",
+        "python >=3.12,<3.13.0a0 *_cpython",
+        "python_abi 3.12.* *_cp312"
+    ],
+    "fn": "jsonpointer-3.0.0-py312h81bd7bf_2.conda",
+    "license": "BSD-3-Clause",
+    "license_family": "BSD",
+    "md5": "bfd72094f8390de02e426ac61fb7b8ee",
+    "name": "jsonpointer",
+    "platform": "osx",
+    "sha256": "1580c22576df479b8a05370a162aa1bca8ba048f6f5c43ec9269e600c64f43b0",
+    "size": 18540,
+    "subdir": "osx-arm64",
+    "timestamp": 1756754421272,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/jsonpointer-3.0.0-py312h81bd7bf_2.conda",
+    "version": "3.0.0"
+}

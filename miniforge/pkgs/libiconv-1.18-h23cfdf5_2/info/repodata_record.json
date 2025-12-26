@@ -1,0 +1,20 @@
+{
+    "arch": "arm64",
+    "build": "h23cfdf5_2",
+    "build_number": 2,
+    "channel": "https://conda.anaconda.org/conda-forge",
+    "depends": [
+        "__osx >=11.0"
+    ],
+    "fn": "libiconv-1.18-h23cfdf5_2.conda",
+    "license": "LGPL-2.1-only",
+    "md5": "4d5a7445f0b25b6a3ddbb56e790f5251",
+    "name": "libiconv",
+    "platform": "osx",
+    "sha256": "de0336e800b2af9a40bdd694b03870ac4a848161b35c8a2325704f123f185f03",
+    "size": 750379,
+    "subdir": "osx-arm64",
+    "timestamp": 1754909073836,
+    "url": "https://conda.anaconda.org/conda-forge/osx-arm64/libiconv-1.18-h23cfdf5_2.conda",
+    "version": "1.18"
+}
