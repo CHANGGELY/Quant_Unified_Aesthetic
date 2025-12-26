@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.env
+
+# Data & Logs (核心：排除大数据文件和日志)
+Quant_Unified/data/
+Quant_Unified/系统日志/
+*.parquet
+*.csv
+*.log
+*.pkl
+*.zip
+*.gz
+*.tar.gz
+
+# Local toolchains / environments
+miniforge/
+Miniforge3-*.sh
+Quant_Unified/.deps/
+
+# Large third-party/vendor directories
+nautilus_trader/
+nautilus_market_maker/
+select-coin-25年终版/
+
+# Strategy outputs / datasets
+**/data/
+**/data_center/
+*.h5
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Git

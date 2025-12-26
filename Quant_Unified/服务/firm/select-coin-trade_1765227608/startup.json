@@ -1,0 +1,37 @@
+{
+  "apps": [
+    {
+      "name": "select-coin-trade_1765227608_data_center",
+      "namespace": "dc_553ef8fb-340c-465c-b80f-1c10ceee0e36",
+      "script": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/data_center.py",
+      "exec_interpreter": "python3",
+      "merge_logs": false,
+      "watch": false,
+      "error_file": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/系统日志/data_center.error.log",
+      "out_file": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/系统日志/data_center.out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss.SSS Z"
+    },
+    {
+      "name": "select-coin-trade_1765227608_startup",
+      "namespace": "st_553ef8fb-340c-465c-b80f-1c10ceee0e36",
+      "script": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/startup.py",
+      "exec_interpreter": "python3",
+      "merge_logs": false,
+      "watch": false,
+      "error_file": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/系统日志/startup.error.log",
+      "out_file": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/系统日志/startup.out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss.SSS Z"
+    },
+    {
+      "name": "select-coin-trade_1765227608_summary_framework",
+      "namespace": "sm_553ef8fb-340c-465c-b80f-1c10ceee0e36",
+      "script": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/summary_framework.py",
+      "exec_interpreter": "python3",
+      "merge_logs": false,
+      "watch": false,
+      "error_file": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/系统日志/summary_framework.error.log",
+      "out_file": "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/服务/firm/select-coin-trade_1765227608/系统日志/summary_framework.out.log",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss.SSS Z"
+    }
+  ]
+}

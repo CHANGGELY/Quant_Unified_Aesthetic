@@ -1,0 +1,254 @@
+# 多架构优化 Docker 镜像（专为 macOS 构建优化）
+#
+# 优化特性：
+# 1. 多阶段构建，分离依赖和应用层
+# 2. 最大化缓存利用率，减少重复构建
+# 3. 并行安装和优化的层结构
+# 4. 跨架构兼容性配置
+# 5. Google Chrome 浏览器 - 支持网页自动化和数据采集
+# 6. SourceHanSansSC 字体 - 支持中文字体渲染
+#
+# Version: 3.1 - 多架构优化版 + Chrome浏览器和中文字体支持
+
+# ============================================================================
+# 阶段1: 基础系统层（最稳定，缓存命中率高）
+# ============================================================================
+FROM python:3.11-slim AS base-system
+
+# 设置基础环境变量
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    # 时区配置
+    TZ=Asia/Shanghai \
+    # Chrome浏览器环境变量
+    CHROME_BIN=/usr/bin/google-chrome-stable \
+    DISPLAY=:99
+
+# 配置镜像源（多源回退机制）
+RUN { \
+    # 优先尝试 USTC 镜像
+    sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's/security.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources; \
+    } || { \
+    # 如果失败，回退到清华镜像
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main" >> /etc/apt/sources.list; \
+    } || { \
+    # 最后回退到官方源
+    echo "deb http://deb.debian.org/debian bookworm main" > /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bookworm-updates main" >> /etc/apt/sources.list && \
+    echo "deb http://security.debian.org/debian-security bookworm-security main" >> /etc/apt/sources.list; \
+    }
+
+# 安装系统基础包（这一层很少变化，缓存命中率高）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # 基础工具
+    curl \
+    wget \
+    unzip \
+    gnupg \
+    ca-certificates \
+    # 时区配置
+    tzdata \
+    # Locale 支持
+    locales \
+    # 字体配置工具
+    fontconfig \
+    # Chrome浏览器相关依赖
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libnss3 \
+    # 清理 APT 缓存
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# 配置时区（独立层，便于缓存）
+RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone \
+    && dpkg-reconfigure -f noninteractive tzdata
+
+# 配置 Locale（独立层，便于缓存）
+RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
+    && echo "zh_CN.UTF-8 UTF-8" >> /etc/locale.gen \
+    && locale-gen \
+    && update-locale LANG=en_US.UTF-8
+
+# ============================================================================
+# 阶段2: Web服务层（Nginx + Node.js）
+# ============================================================================
+FROM base-system AS web-layer
+
+# 安装 Web 服务依赖（带重试机制）
+RUN for i in 1 2 3; do \
+        apt-get update && apt-get install -y --no-install-recommends \
+            # Nginx Web服务器
+            nginx \
+            # 清理
+            && apt-get clean \
+            && rm -rf /var/lib/apt/lists/* \
+            && break || sleep 10; \
+    done
+
+# 安装Node.js和npm（独立层）
+RUN for i in 1 2 3; do \
+        apt-get update && apt-get install -y --no-install-recommends \
+            # Node.js 和 npm
+            nodejs \
+            npm \
+            # 清理
+            && apt-get clean \
+            && rm -rf /var/lib/apt/lists/* \
+            && break || sleep 10; \
+    done
+
+# 配置 npm 并安装 PM2（独立层）
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm install -g pm2 \
+    && npm cache clean --force
+
+# 配置 PM2 环境
+ENV PM2_HOME=/app/.pm2-runtime
+RUN mkdir -p /app/.pm2-runtime /app/.pm2 \
+    && export PM2_HOME=/app/.pm2-runtime \
+    && pm2 ping \
+    && pm2 install pm2-logrotate \
+    && pm2 set pm2-logrotate:retain 7 \
+    && pm2 set pm2-logrotate:max_size 10M \
+    && pm2 set pm2-logrotate:rotateInterval '0 0 * * *' \
+    && pm2 startup \
+    && pm2 save -f
+
+# 安装Chrome浏览器（独立层，便于缓存，增加重试机制）
+RUN for i in 1 2 3; do \
+        echo "尝试安装Chrome，第 $i 次..." && \
+        # 添加Chrome官方GPG密钥
+        curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --batch --yes --dearmor -o /usr/share/keyrings/google-chrome.gpg 2>/dev/null && \
+        # 添加Chrome仓库
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list && \
+        # 更新包列表
+        apt-get update && \
+        # 尝试安装Chrome
+        (apt-get install -y --no-install-recommends google-chrome-stable 2>/dev/null || \
+         apt-get install -y --no-install-recommends chromium 2>/dev/null) && \
+        # 清理
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/* && \
+        echo "Chrome安装成功" && break || \
+        { echo "Chrome安装失败，重试 $i/3"; sleep 10; }; \
+    done \
+    # 验证Chrome安装（如果找不到chrome，尝试chromium）
+    && (google-chrome-stable --version 2>/dev/null || chromium --version 2>/dev/null || echo "浏览器安装验证完成")
+
+# 安装SourceHanSansSC字体（独立层）
+RUN mkdir -p /usr/share/fonts/SourceHanSans \
+    && cd /usr/share/fonts/SourceHanSans \
+    && for i in 1 2 3; do \
+        echo "尝试下载字体，第 $i 次..." && \
+        wget -q --timeout=30 --tries=2 https://github.com/adobe-fonts/source-han-sans/releases/download/2.004R/SourceHanSansSC.zip \
+        && unzip -q SourceHanSansSC.zip \
+        && mv OTF/* . 2>/dev/null \
+        && rmdir OTF 2>/dev/null \
+        && rm -f SourceHanSansSC.zip \
+        && echo "字体下载成功" && break || \
+        { echo "字体下载失败，重试 $i/3"; sleep 10; rm -f SourceHanSansSC.zip 2>/dev/null; }; \
+    done \
+    && fc-cache -fv || echo "字体缓存更新完成"
+
+# ============================================================================
+# 阶段3: Python编译环境（包含编译工具）
+# ============================================================================
+FROM web-layer AS python-build
+
+# 安装 Python 编译依赖（带重试机制）
+RUN for i in 1 2 3; do \
+        apt-get update && apt-get install -y --no-install-recommends \
+            gcc \
+            g++ \
+            && apt-get clean \
+            && rm -rf /var/lib/apt/lists/* \
+            && break || sleep 10; \
+    done
+
+# 配置 pip 镜像源
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    && pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn
+
+# 复制并安装 Python 依赖（单独层，便于缓存）
+COPY requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
+
+# ============================================================================
+# 阶段4: 量化框架环境
+# ============================================================================
+FROM python-build AS alpha-env
+
+# 创建量化交易框架专用环境
+RUN python -m venv /opt/alpha_env \
+    && /opt/alpha_env/bin/pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple \
+    && /opt/alpha_env/bin/pip config set global.trusted-host pypi.tuna.tsinghua.edu.cn \
+    && /opt/alpha_env/bin/pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && /opt/alpha_env/bin/pip install --no-cache-dir xbx-py11
+
+# ============================================================================
+# 阶段5: 最终运行时镜像（不包含编译工具）
+# ============================================================================
+FROM web-layer AS runtime
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制 Python 环境
+COPY --from=python-build /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=python-build /usr/local/bin /usr/local/bin
+COPY --from=alpha-env /opt/alpha_env /opt/alpha_env
+
+# 复制配置文件（这些文件很少变化）
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/qronos.conf.template /etc/nginx/conf.d/qronos.conf.template
+
+# 复制启动脚本
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# 创建目录结构
+RUN mkdir -p \
+    /app/qronos \
+    /var/www/html \
+    /app/firm
+
+# 复制前端静态文件（如果存在）
+COPY frontend/dist/ /var/www/html/
+
+# 复制项目源代码（放在最后，因为变化最频繁）
+COPY . /app/qronos/
+
+# 创建运行时目录
+RUN mkdir -p \
+    /app/qronos/data \
+    /app/qronos/logs
+
+# 暴露端口
+EXPOSE 80
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost/ || exit 1
+
+# 启动入口点
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["nginx", "-g", "daemon off;"] 
