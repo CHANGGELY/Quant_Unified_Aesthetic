@@ -1,0 +1,8 @@
+{
+    "Quant_Unified/strategies": "Quant_Unified/策略仓库",
+    "Quant_Unified/tests": "Quant_Unified/测试用例",
+    "Quant_Unified/libs": "Quant_Unified/基础库",
+    "Quant_Unified/apps": "Quant_Unified/应用",
+    "Quant_Unified/services": "Quant_Unified/服务",
+    "Quant_Unified/logs": "Quant_Unified/系统日志"
+}

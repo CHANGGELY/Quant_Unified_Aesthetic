@@ -1,0 +1,13 @@
+/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/五号预测策略/program/step2_build_dataset.py:110: FutureWarning: The default fill_method='pad' in Series.pct_change is deprecated and will be removed in a future version. Either fill in any non-leading NA values prior to calling pct_change or specify 'fill_method=None' to not fill NA values.
+  ret = out["wmp"].pct_change()
+2025-12-22 10:30:05,914 INFO Loaded ETHUSDC: used_days=1 (2024-03-01..2024-03-01), 1s_bars=86,399
+
+========================================================================
+跨币种回测: Train=BTCUSDT -> Test=ETHUSDC (mode=executable)
+========================================================================
+ horizon_s  trades  return_pct  max_dd_pct  cost  bars
+         5       5      -1.414      -2.761 29.26 85408
+        10       9      -4.659      -6.174 52.76 85408
+        20       3      -0.669      -2.872 23.22 85408
+        30       3      -0.548      -2.892 23.19 85408
+        60       1      -2.707      -3.316  3.13 85408

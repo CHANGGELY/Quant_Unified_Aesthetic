@@ -1,0 +1,7 @@
+ccxt>=4.3.0
+pandas>=2.2.0
+numpy>=1.26.0
+aiohttp>=3.9.0
+numba>=0.59.0
+plotly>=5.18.0
+scipy>=1.10.0
