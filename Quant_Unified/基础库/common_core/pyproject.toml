@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-unified-common-core"
+version = "0.1.0"
+description = "Quant Unified 通用核心库：交易所客户端、回测、风控与工具集"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Quant Unified Team" }]
+license = { text = "Proprietary" }
+dependencies = [
+    "ccxt>=4.3.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "aiohttp>=3.9.0",
+    "numba>=0.59.0",
+    "plotly>=5.18.0",
+    "scipy>=1.10.0",
+]
+
+[tool.setuptools]
+packages = { find = { where = ["."] } }
+

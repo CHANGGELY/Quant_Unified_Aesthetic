@@ -1,0 +1,604 @@
+<template>
+  <Card
+    class="hidden sm:flex flex-2"
+    :pt="{
+      body: {
+        class: 'px-4 py-3',
+      },
+    }"
+    :class="[
+      viewIsFullscreen === true
+        ? 'w-screen h-screen fixed inset-0 z-50 bg-white dark:bg-neutral-900 p-4 flex flex-col rounded-none'
+        : '',
+    ]"
+  >
+    <template #title>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="pi pi-chart-scatter"></i>
+          <span class="text-lg font-bold">策略中心</span>
+        </div>
+        <Button
+          v-if="viewIsFullscreen === false"
+          icon="pi pi-window-maximize"
+          text
+          rounded
+          severity="secondary"
+          size="small"
+          @click="() => (viewIsFullscreen = true)"
+          v-tooltip="'全屏显示'"
+        />
+        <Button
+          v-else
+          icon="pi pi-window-minimize"
+          text
+          rounded
+          severity="secondary"
+          size="small"
+          @click="() => (viewIsFullscreen = false)"
+          v-tooltip="'退出全屏'"
+        />
+      </div>
+    </template>
+    <template #content>
+      <template v-if="viewIsLoading">
+        <div class="flex flex-col gap-3 pr-4">
+          <div
+            v-for="i in 2"
+            :key="i"
+            class="flex items-center justify-between"
+          >
+            <div class="flex flex-col gap-1 pl-2">
+              <Skeleton width="120px" height="20px" />
+              <Skeleton width="80px" height="14px" />
+            </div>
+            <div class="flex items-center gap-2">
+              <Skeleton shape="circle" width="32px" height="32px" />
+              <Skeleton shape="circle" width="32px" height="32px" />
+            </div>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div
+          v-if="viewFrameWorkInfoList && viewFrameWorkInfoList.length > 0"
+          class="flex flex-col gap-2 pr-4"
+          :class="[
+            viewIsFullscreen === false ? 'max-h-[108px] overflow-y-auto' : '',
+          ]"
+        >
+          <div
+            v-for="(item, index) of viewFrameWorkInfoList"
+            :key="index"
+            class="flex items-center justify-between"
+          >
+            <div class="flex flex-col gap-1 pl-2">
+              <div class="text-sm flex items-center gap-1">
+                <span
+                  class="relative flex h-3 w-3 items-center justify-center"
+                  v-if="item.status === dataCenterStatusEnum.start"
+                >
+                  <span
+                    class="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-green-500 opacity-75"
+                  ></span>
+                  <span
+                    class="relative inline-flex rounded-full h-2 w-2 bg-green-500"
+                  ></span>
+                </span>
+
+                <span v-else class="rounded-full h-2 w-2 bg-gray-300"></span>
+                <span>{{ item.framework_name }}</span>
+              </div>
+              <div class="text-xs flex gap-2">
+                <div class="flex items-center gap-2">
+                  <span>内存占用:</span>
+                  <Tag class="text-xs font-medium">
+                    {{ item?.mem_usage || "_" }}
+                  </Tag>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span>cpu占用:</span>
+                  <Tag class="text-xs font-medium">
+                    {{ item?.cpu_usage || "_" }}
+                  </Tag>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span>启动时间:</span>
+                  <Tag class="text-xs font-medium">
+                    {{
+                      item?.pm_uptime
+                        ? dayjs(item?.pm_uptime).format("YYYY-MM-DD HH:mm:ss")
+                        : "--"
+                    }}
+                  </Tag>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <Button
+                icon="pi pi-cog"
+                text
+                rounded
+                size="small"
+                @click="goToFrameWorkPage(item.id)"
+              />
+              <Button
+                v-if="item.status === dataCenterStatusEnum.stop"
+                @click="
+                  operateActualTrading(
+                    item.framework_id,
+                    dataCenterStatusEnum.start
+                  )
+                "
+                icon="pi pi-caret-right"
+                rounded
+                raised
+                v-tooltip="'启动'"
+                :disabled="viewIsLoading"
+                size="small"
+                class="hover:scale-105 transition-transform duration-300"
+              />
+              <Button
+                v-if="item.status === dataCenterStatusEnum.start"
+                @click="
+                  operateActualTrading(
+                    item.framework_id,
+                    dataCenterStatusEnum.stop
+                  )
+                "
+                icon="pi pi-stop-circle"
+                icon-class="text-red-500"
+                rounded
+                raised
+                v-tooltip="'停止'"
+                :disabled="viewIsLoading"
+                size="small"
+                class="hover:scale-105 transition-transform duration-300 bg-white dark:bg-neutral-700 border-1 border-neutral-300 dark:border-neutral-600"
+              />
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <div class="text-sm flex items-center">
+            <span>你目前暂无框架，请先</span>
+            <Button
+              size="small"
+              variant="outlined"
+              text
+              class="p-1 text-sm"
+              label="新增框架"
+              @click="goToFrameWorkPage()"
+            >
+            </Button>
+            ！
+          </div>
+        </div>
+      </template>
+    </template>
+  </Card>
+  <Card class="sm:hidden flex-1">
+    <template #content>
+      <div
+        class="font-bold text-center flex items-center justify-center gap-2"
+        @click="() => (viewIsOpenDialog = true)"
+      >
+        <i class="pi pi-chart-scatter"></i>
+        <span>策略中心控制</span>
+      </div>
+    </template>
+  </Card>
+  <Dialog
+    v-model:visible="viewIsOpenDialog"
+    header="策略中心控制"
+    modal
+    class="hidden sm:block w-[90vw] sm:w-[600px] max-w-full"
+  >
+    <template #default>
+      <template v-if="viewIsLoading">
+        <div class="flex flex-col gap-3 pr-4">
+          <div
+            v-for="i in 2"
+            :key="i"
+            class="flex items-center justify-between"
+          >
+            <div class="flex flex-col gap-1 pl-2">
+              <Skeleton width="120px" height="20px" />
+              <Skeleton width="80px" height="14px" />
+            </div>
+            <div class="flex items-center gap-2">
+              <Skeleton shape="circle" width="32px" height="32px" />
+              <Skeleton shape="circle" width="32px" height="32px" />
+            </div>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div
+          v-if="viewFrameWorkInfoList && viewFrameWorkInfoList.length > 0"
+          class="flex flex-col gap-2 pr-4"
+        >
+          <div
+            v-for="(item, index) of viewFrameWorkInfoList"
+            :key="index"
+            class="flex items-center justify-between"
+          >
+            <div class="flex flex-col gap-2 pl-2">
+              <div class="text-sm flex items-center gap-1">
+                <span
+                  class="relative flex h-3 w-3 items-center justify-center"
+                  v-if="item.status === dataCenterStatusEnum.start"
+                >
+                  <span
+                    class="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-green-500 opacity-75"
+                  ></span>
+                  <span
+                    class="relative inline-flex rounded-full h-2 w-2 bg-green-500"
+                  ></span>
+                </span>
+
+                <span v-else class="rounded-full h-2 w-2 bg-gray-300"></span>
+
+                <span>{{ item.framework_name }}</span>
+              </div>
+              <div class="text-xs flex gap-2 flex-wrap pl-3">
+                <div class="flex items-center">
+                  <span class="w-16">内存占用:</span>
+                  <Tag class="text-xs font-medium">
+                    {{ item?.mem_usage || "_" }}
+                  </Tag>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-16">cpu占用:</span>
+                  <Tag class="text-xs font-medium">
+                    {{ item?.cpu_usage || "_" }}
+                  </Tag>
+                </div>
+                <div class="flex items-center">
+                  <span class="w-16">启动时间:</span>
+                  <Tag class="text-xs font-medium">
+                    {{
+                      item?.pm_uptime
+                        ? dayjs(item?.pm_uptime).format("YYYY-MM-DD HH:mm:ss")
+                        : "--"
+                    }}
+                  </Tag>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <Button
+                icon="pi pi-cog"
+                text
+                rounded
+                size="small"
+                @click="goToFrameWorkPage(item.id)"
+              />
+              <Button
+                v-if="item.status === dataCenterStatusEnum.stop"
+                @click="
+                  operateActualTrading(
+                    item.framework_id,
+                    dataCenterStatusEnum.start
+                  )
+                "
+                icon="pi pi-caret-right"
+                rounded
+                raised
+                v-tooltip="'启动'"
+                :disabled="viewIsLoading"
+                size="small"
+                class="hover:scale-105 transition-transform duration-300"
+              />
+              <Button
+                v-if="item.status === dataCenterStatusEnum.start"
+                @click="
+                  operateActualTrading(
+                    item.framework_id,
+                    dataCenterStatusEnum.stop
+                  )
+                "
+                icon="pi pi-stop-circle"
+                icon-class="text-red-500"
+                rounded
+                raised
+                v-tooltip="'停止'"
+                :disabled="viewIsLoading"
+                size="small"
+                class="hover:scale-105 transition-transform duration-300 bg-white dark:bg-neutral-700 border-0"
+              />
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <div class="text-sm flex items-center">
+            <span>你目前暂无框架，请先</span>
+            <Button
+              size="small"
+              variant="outlined"
+              text
+              class="p-1 text-sm"
+              label="新增框架"
+              @click="goToFrameWorkPage()"
+            >
+            </Button>
+            ！
+          </div>
+        </div>
+      </template>
+    </template>
+  </Dialog>
+
+  <!-- 加密模式开启 实盘/监控/启动/停止前需要输入密码 -->
+  <InputEncryptedPwdDialogTmpl
+    ref="refInputEncryptedPwdDialogTmpl"
+    @confirm="passwordConfirmAction"
+    @cancel="viewPendingOperation = null"
+  />
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref, watch, onUnmounted } from "vue";
+import { onBeforeRouteLeave } from "vue-router";
+import dayjs from "dayjs";
+import {
+  dataCenterStatusEnum,
+  getFrameWorkRunStatus,
+  frameWorkRunStatusEnum,
+  getAccountInfo,
+  startOrStopFrameWork,
+  getDataCenterConfig,
+} from "@/common-module/services/service.provider";
+import InputEncryptedPwdDialogTmpl from "@/common-module/components/inputEncryptedPwdDialog.template.vue";
+const refInputEncryptedPwdDialogTmpl = ref<InstanceType<
+  typeof InputEncryptedPwdDialogTmpl
+> | null>(null);
+import { useRouter } from "vue-router";
+const router = useRouter();
+const viewIsFullscreen = ref<boolean | null>(false);
+const viewIsOpenDialog = ref<boolean>(false);
+const viewIsLoading = ref<boolean>(true);
+const viewRunStatuslList = ref<tDbFrameWorkRunStatusRes[]>([]);
+
+const props = defineProps<{
+  downloadIsLoading: boolean;
+  frameWorkList: tDbFrameWorkStatusRes[];
+}>();
+
+import { useToast } from "primevue/usetoast";
+const toast = useToast();
+
+const frameWorkStatusTimer = ref<ReturnType<typeof setTimeout> | null>(null);
+const viewFrameWorkInfoList = ref<
+  (tDbFrameWorkStatusRes & {
+    status?: string;
+    pm_uptime?: number | null;
+    cpu_usage?: string | null;
+    mem_usage?: string | null;
+  })[]
+>([]);
+
+const viewGlobalConfigData = ref<iConfigData>({
+  is_simulate: null,
+  error_webhook_url: "",
+  factor_col_limit: 64,
+  is_encrypt: false,
+});
+// 存储当前待执行的操作
+const viewPendingOperation = ref<{
+  status: dataCenterStatusEnum;
+  frameWorkId: string;
+} | null>(null);
+
+onMounted(async () => {
+  // 等待 props.frameWorkList 有数据后再开始轮询
+  if (props.frameWorkList && props.frameWorkList.length > 0) {
+    startFrameWorkRunStatusTimer();
+  }
+});
+
+// 监听 props.frameWorkList 的变化
+watch(
+  () => props.frameWorkList,
+  (newVal: tDbFrameWorkStatusRes[]) => {
+    if (newVal && newVal.length > 0) {
+      startFrameWorkRunStatusTimer();
+    }
+  },
+  { immediate: true }
+);
+
+const startFrameWorkRunStatusTimer = () => {
+  clearFrameWorkRunStatusTimer();
+  executeRunStatusCheck();
+};
+
+const executeRunStatusCheck = async () => {
+  viewIsLoading.value = true;
+  viewFrameWorkInfoList.value = JSON.parse(JSON.stringify(props.frameWorkList));
+  try {
+    const res = await getFrameWorkRunStatus();
+    if (res.result === true && res.data && res.data.length > 0) {
+      viewRunStatuslList.value = res.data;
+
+      let isIngStatus = false;
+      for (let item of res.data) {
+        if (
+          item.status === frameWorkRunStatusEnum.starting ||
+          item.status === frameWorkRunStatusEnum.stopping ||
+          item.status === frameWorkRunStatusEnum.restarting
+        ) {
+          isIngStatus = true;
+          break;
+        }
+      }
+
+      if (isIngStatus === false) {
+        viewIsLoading.value = false;
+        // 数据合并
+        for (let item of viewFrameWorkInfoList.value) {
+          const runStatusItem = viewRunStatuslList.value.find(
+            (item1) =>
+              item1.framework_id === item.framework_id &&
+              item1.name === "startup"
+          );
+          item.status =
+            runStatusItem?.status === frameWorkRunStatusEnum.online
+              ? dataCenterStatusEnum.start
+              : dataCenterStatusEnum.stop;
+          item.pm_uptime = runStatusItem?.pm_uptime || null;
+          item.cpu_usage = runStatusItem?.cpu_usage || null;
+          item.mem_usage = runStatusItem?.mem_usage || null;
+        }
+        return;
+      }
+    } else {
+      viewIsLoading.value = false;
+      // 数据合并
+      for (let item of viewFrameWorkInfoList.value) {
+        const runStatusItem = viewRunStatuslList.value.find(
+          (item1) =>
+            item1.framework_id === item.framework_id && item1.name === "startup"
+        );
+        item.status =
+          runStatusItem?.status === frameWorkRunStatusEnum.online
+            ? dataCenterStatusEnum.start
+            : dataCenterStatusEnum.stop;
+        item.pm_uptime = runStatusItem?.pm_uptime || null;
+        item.cpu_usage = runStatusItem?.cpu_usage || null;
+        item.mem_usage = runStatusItem?.mem_usage || null;
+      }
+      return;
+    }
+  } catch (error) {
+    return;
+  }
+  frameWorkStatusTimer.value = setTimeout(() => {
+    executeRunStatusCheck();
+  }, 1000);
+};
+
+const clearFrameWorkRunStatusTimer = () => {
+  if (frameWorkStatusTimer.value) {
+    clearTimeout(frameWorkStatusTimer.value);
+    frameWorkStatusTimer.value = null;
+  }
+};
+
+const getGlobalConfigDataFn = async (framework_id: string) => {
+  const res = await getDataCenterConfig(framework_id);
+  if (res.result === true) {
+    viewGlobalConfigData.value.is_simulate = res.data?.is_simulate || null;
+    viewGlobalConfigData.value.error_webhook_url =
+      res.data?.error_webhook_url || "";
+    viewGlobalConfigData.value.factor_col_limit =
+      res.data?.factor_col_limit || 64;
+    viewGlobalConfigData.value.is_encrypt = res.data?.is_encrypt || false;
+  }
+};
+
+const getPmId = (frameWorkId: string) => {
+  const runStatusItem = viewRunStatuslList.value.find(
+    (item1) => item1.framework_id === frameWorkId && item1.name === "startup"
+  );
+  return (runStatusItem?.pm_id || null) as any;
+};
+
+const operateActualTrading = async (
+  frameWorkId: string,
+  status: dataCenterStatusEnum
+) => {
+  // 启动前判断是否已配置
+  if (status === dataCenterStatusEnum.start) {
+    const accountRes = await getAccountInfo(frameWorkId);
+    if (
+      !accountRes.result ||
+      accountRes.data == null ||
+      accountRes.data.length == 0
+    ) {
+      toast.add({
+        severity: "warn",
+        summary: "请先增加账户,导入策略,完成配置!",
+        life: 3000,
+      });
+      return;
+    }
+  }
+
+  await getGlobalConfigDataFn(frameWorkId);
+
+  // 如果是加密模式并且真实实盘 用户需要输入加密时使用的密码
+  if (
+    viewGlobalConfigData.value.is_encrypt === true &&
+    status === dataCenterStatusEnum.start &&
+    refInputEncryptedPwdDialogTmpl.value
+  ) {
+    // 存储待执行的操作
+    viewPendingOperation.value = { status, frameWorkId };
+    // 显示密码输入弹窗
+    refInputEncryptedPwdDialogTmpl.value?.openDialog();
+    return;
+  }
+
+  startOrStopFrameWorkFn(frameWorkId, status);
+};
+
+const startOrStopFrameWorkFn = async (
+  frameWorkId: string,
+  status: dataCenterStatusEnum,
+  secret_key: string = ""
+) => {
+  let temp: vDataCenterStatusParams = {
+    framework_id: frameWorkId,
+    pm_id: getPmId(frameWorkId),
+    type: status,
+  };
+  if (secret_key) {
+    temp.secret_key = secret_key;
+  }
+  const res = await startOrStopFrameWork(temp);
+  viewPendingOperation.value = null;
+
+  if (res.result) {
+    toast.add({ severity: "success", summary: "操作成功", life: 2000 });
+    startFrameWorkRunStatusTimer();
+  } else {
+    toast.add({
+      severity: "error",
+      summary: "操作失败",
+      detail: res.msg,
+      life: 3000,
+    });
+  }
+};
+
+// 处理密码确认
+const passwordConfirmAction = (password: string) => {
+  if (!viewPendingOperation.value) {
+    toast.add({
+      severity: "error",
+      summary: "操作失败",
+      detail: "未找到待执行的操作",
+      life: 3000,
+    });
+    return;
+  }
+
+  // 执行待执行的操作
+  const { status, frameWorkId } = viewPendingOperation.value;
+  startOrStopFrameWorkFn(frameWorkId, status, password);
+};
+
+const goToFrameWorkPage = (id: number = 0) => {
+  router.push({
+    path: `/strategyCenter/${id}`,
+  });
+};
+
+onUnmounted(() => {
+  clearFrameWorkRunStatusTimer();
+});
+
+onBeforeRouteLeave(() => {
+  clearFrameWorkRunStatusTimer();
+});
+</script>
