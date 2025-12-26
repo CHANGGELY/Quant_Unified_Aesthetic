@@ -1,0 +1,20 @@
+backtest:
+  symbol: "ETHUSDT"
+  money: 590.43
+  leverage: 10
+  interval_mode: "geometric_sequence"  # arithmetic_sequence or geometric_sequence
+  direction_mode: "neutral"            # neutral, long, short
+  num_hours: 216.5
+  end_time: "2025-10-20 06:44:00"
+  timezone: "Asia/Shanghai"
+  num_steps: 118
+  min_price: 3663.86
+  max_price: 4049.66
+  price_range: 0
+  capital_ratio: 0.8
+  stop_up_price: 37000
+  stop_down_price: 0.01
+  enable_upward_shift: true
+  enable_downward_shift: true
+  local_data_path: "/Users/chuan/Desktop/xiangmu/code/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
+  data_center_dir: "/Users/chuan/Desktop/xiangmu/code/data_center"

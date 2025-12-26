@@ -1,0 +1,55 @@
+localStorage.removeItem('gaToken');
+localStorage.removeItem('wxToken');
+localStorage.removeItem('user-info');
+localStorage.removeItem('ga-secret-key');
+sessionStorage.removeItem('gaToken');
+sessionStorage.removeItem('wxToken');
+sessionStorage.removeItem('user-info');
+window.location.href = '/login';MIT Non-Commercial Attribution License with Patent Grant (MIT-NC-Attr-PG)
+Copyright (c) 2025 [Templeton1129]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, merge, publish, and distribute the Software, subject to the
+following conditions:
+
+1. Non-Commercial Use
+   The Software may only be used for personal, educational, research, or
+   open-source purposes. Any commercial use, including but not limited to
+   selling, licensing, or using the Software or its derivatives for profit,
+   is strictly prohibited without prior written permission from the copyright holder.
+
+2. Attribution
+   Any distribution, fork, or derivative work must include clear and
+   prominent attribution to the original author and project, including:
+      - The original author's name: Templeton1129
+      - A link to the original repository: https://github.com/Templeton1129/qronos
+
+3. License Inclusion
+   All copies or substantial portions of the Software must include this
+   license text in full.
+
+4. Patent Grant
+   Subject to the terms and conditions of this License, the copyright holder
+   hereby grants to you a perpetual, worldwide, non-exclusive, no-charge,
+   royalty-free, irrevocable (except as stated in this section) patent license
+   to make, have made, use, offer to sell, sell, import, and otherwise
+   transfer the Software, for **non-commercial purposes only**, where such
+   license applies only to those patent claims licensable by the copyright
+   holder that are necessarily infringed by their contribution(s) to the
+   Software.
+
+5. Patent Termination
+   If you or your entity initiate patent litigation (including a cross-claim or
+   counterclaim in a lawsuit) alleging that the Software or a contribution
+   incorporated within the Software constitutes direct or contributory patent
+   infringement, then any patent licenses granted to you under this License
+   shall terminate as of the date such litigation is filed.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

@@ -1,0 +1,172 @@
+# Nginx默认站点配置模板
+# 量化交易框架管理系统 - 前端静态文件 + API反向代理
+# 
+# 该模板文件在容器启动时会被处理：
+# - ${API_PREFIX} 会被替换为 prefix.txt 中的实际前缀
+
+server {
+    listen 80;
+    server_name _;
+    
+    # 安全头设置
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    
+    # API反向代理到FastAPI应用
+    # 使用路径：/${API_PREFIX}/flask/
+    location /${API_PREFIX}/flask/ {
+        # 去掉 /${API_PREFIX}/flask 前缀，直接代理到qronos路径
+        rewrite ^/${API_PREFIX}/flask/(.*)$ /qronos/$1 break;
+        
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # 缓冲设置
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+    }
+    
+    # 外部API代理 - 使用动态前缀路径
+    # 使用路径：/${API_PREFIX}/api/
+    location /${API_PREFIX}/api/ {
+        # 去掉 /${API_PREFIX}/api 前缀，代理到外部API
+        rewrite ^/${API_PREFIX}/api/(.*)$ /$1 break;
+
+        proxy_pass https://api.quantclass.cn/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+
+        # 缓冲设置
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+
+        # SSL验证
+        proxy_ssl_verify off;
+        proxy_ssl_server_name on;
+    }
+
+    # 前端静态文件服务 - 使用动态前缀路径
+    # 前端页面通过 /${API_PREFIX}/ 访问
+    location /${API_PREFIX}/ {
+        alias /var/www/html/;
+        index index.html index.htm;
+
+        # SPA路由处理：优先尝试文件，然后返回index.html
+        try_files $uri $uri/ @fallback;
+
+        # HTML文件特殊处理：动态替换base path和资源路径
+        location ~* \.html$ {
+            expires -1;
+            add_header Cache-Control "no-cache, no-store, must-revalidate";
+
+            # 启用sub_filter模块来动态替换HTML中的路径
+            sub_filter_once off;
+
+            # 1. 为SPA设置base href（用于前端路由）
+            sub_filter '<head>' '<head><base href="/${API_PREFIX}/">';
+
+            # 2. 修复Vite生成的绝对路径静态资源引用
+            sub_filter 'src="/assets/' 'src="/${API_PREFIX}/assets/';
+            sub_filter 'href="/assets/' 'href="/${API_PREFIX}/assets/';
+
+            # 3. 修复ES modules的import路径
+            sub_filter 'from"/assets/' 'from"/${API_PREFIX}/assets/';
+            sub_filter 'import"/assets/' 'import"/${API_PREFIX}/assets/';
+
+            # 4. 修复其他可能的绝对路径引用
+            sub_filter 'url("/assets/' 'url("/${API_PREFIX}/assets/';
+            sub_filter "url('/assets/" "url('/${API_PREFIX}/assets/";
+
+            # 5. 修复vite.svg等根目录文件
+            sub_filter 'src="/vite.svg"' 'src="/${API_PREFIX}/vite.svg"';
+            sub_filter 'href="/vite.svg"' 'href="/${API_PREFIX}/vite.svg"';
+
+            # 6. 修复可能的JSON配置中的路径
+            sub_filter '"/assets/' '"/${API_PREFIX}/assets/';
+            sub_filter "'/assets/" "'/${API_PREFIX}/assets/";
+        }
+    }
+
+    # 静态资源服务 - 精确匹配assets目录
+    location ~* ^/${API_PREFIX}/assets/(.+)$ {
+        alias /var/www/html/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files /$1 =404;
+    }
+
+    # 根目录静态文件（vite.svg、favicon.ico等）
+    location ~* ^/${API_PREFIX}/([^/]+\.(ico|svg|png|jpg|jpeg|gif|webp|js|css|woff|woff2|ttf|eot|map))$ {
+        alias /var/www/html/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files /$1 =404;
+    }
+
+    # 兼容原始路径的静态资源（向后兼容）
+    location ~* ^/assets/(.+)$ {
+        alias /var/www/html/assets/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files /$1 =404;
+    }
+
+    # 根目录文件的原始路径访问（向后兼容）
+    location ~* ^/([^/]+\.(ico|svg|png|jpg|jpeg|gif|webp|js|css|woff|woff2|ttf|eot|map))$ {
+        alias /var/www/html/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files /$1 =404;
+    }
+
+    # SPA应用的fallback处理
+    location @fallback {
+        # 使用内部重定向到处理过的index.html
+        rewrite ^.*$ /${API_PREFIX}/index.html last;
+    }
+
+    # 健康检查端点
+    location /health {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+    
+    # 错误页面
+    error_page 404 /404.html;
+    error_page 500 502 503 504 /50x.html;
+    
+    location = /50x.html {
+        root /var/www/html;
+    }
+    
+    location = /404.html {
+        root /var/www/html;
+    }
+}

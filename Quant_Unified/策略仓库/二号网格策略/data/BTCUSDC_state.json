@@ -1,0 +1,44 @@
+{
+    "grid_dict": {
+        "interval": 0.0020020681381442973,
+        "price_central": 84822.52957988031,
+        "one_grid_quantity": 0.001,
+        "max_price": 85846.566,
+        "min_price": 84146.634
+    },
+    "account_dict": {
+        "positions_grids": 5,
+        "positions_qty": 0.006,
+        "pairing_count": 0,
+        "pair_profit": 0,
+        "positions_cost": 84927.4,
+        "positions_profit": -0.23879999999993015,
+        "avg_price": 84927.4,
+        "pending_orders": [],
+        "up_price": 84887.6,
+        "down_price": 84717.9888138681,
+        "entry_price": 84904.0,
+        "base_price": 84904.0
+    },
+    "shift_logs": [
+        {
+            "ts": null,
+            "type": "up",
+            "price": 84904.0,
+            "old_central": 139.99999999999997,
+            "new_central": 143.41730944259774,
+            "old_min": 110.0,
+            "new_min": 112.68502884775539,
+            "old_max": 140.0,
+            "new_max": 143.41730944259777
+        }
+    ],
+    "upward_shift_count": 1,
+    "downward_shift_count": 0,
+    "enable_upward_shift": true,
+    "enable_downward_shift": true,
+    "max_loss": -0.23879999999993015,
+    "max_profit": 0.14039999999996508,
+    "is_liquidated": false,
+    "timestamp": 1766091238.692857
+}

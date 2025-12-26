@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-jose
+python-multipart
+requests
+pyotp
+colorama
+sqlalchemy
+aiosqlite
+pandas
+numpy
+pycryptodome
