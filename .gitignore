@@ -13,25 +13,6 @@ Quant_Unified/系统日志/
 *.parquet
 *.csv
 *.log
-*.pkl
-*.zip
-*.gz
-*.tar.gz
-
-# Local toolchains / environments
-miniforge/
-Miniforge3-*.sh
-Quant_Unified/.deps/
-
-# Large third-party/vendor directories
-nautilus_trader/
-nautilus_market_maker/
-select-coin-25年终版/
-
-# Strategy outputs / datasets
-**/data/
-**/data_center/
-*.h5
 
 # IDE
 .vscode/
