@@ -48,8 +48,59 @@ try:
     import pyarrow
 except ImportError as e:
     print(f"❌ 缺少必要的依赖库: {e.name}")
-    print("请运行: pip install websockets pandas pyarrow")
+    print("请运行: pip install websockets pandas pyarrow supabase psutil")
     sys.exit(1)
+
+# ==========================================
+# 2.5 Supabase 心跳监控 (Monitoring)
+# ==========================================
+class HeartbeatManager:
+    """
+    负责向远程数据库发送服务状态，实现“白嫖”级云端监控。
+    """
+    def __init__(self):
+        self.url = os.getenv("SUPABASE_URL")
+        self.key = os.getenv("SUPABASE_KEY")
+        self.client = None
+        if self.url and self.key:
+            try:
+                from supabase import create_client
+                self.client = create_client(self.url, self.key)
+                logger.info("☁️ 已成功连接到 Supabase 监控中心")
+            except Exception as e:
+                logger.error(f"❌ 初始化 Supabase 客户端失败: {e}")
+        else:
+            logger.info("ℹ️ 未检测到 SUPABASE_URL/KEY，监控数据仅记录在本地日志中。")
+
+    async def send_heartbeat(self, status: str, details: Dict[str, Any]):
+        """发送心跳信号到云端"""
+        if not self.client:
+            return
+        
+        try:
+            import psutil
+            # 补充系统性能信息
+            details.update({
+                "cpu_percent": psutil.cpu_percent(),
+                "memory_percent": psutil.virtual_memory().percent,
+                "local_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+            
+            # 执行数据更新 (Upsert)
+            data = {
+                "service_name": "market_collector",
+                "status": status,
+                "details": details,
+                "updated_at": "now()"
+            }
+            
+            # 在线程池中执行同步的 Supabase 调用，避免卡住异步循环
+            def _upsert():
+                return self.client.table("service_status").upsert(data).execute()
+
+            await asyncio.get_running_loop().run_in_executor(None, _upsert)
+        except Exception as e:
+            logger.debug(f"⚠️ 发送心跳信号失败 (非致命错误): {e}")
 
 # ==========================================
 # 3. 配置区域
@@ -226,6 +277,7 @@ class BinanceRecorder:
     def __init__(self):
         self.running = True
         self.storage = DataStorageEngine(DATA_DIR)
+        self.heartbeat = HeartbeatManager() # 初始化监控
 
         self._auto_organize_last_run: Dict[tuple[str, str], float] = {}
         self._auto_organize_guard = asyncio.Lock()
@@ -627,12 +679,29 @@ class BinanceRecorder:
 
             await asyncio.sleep(int(AUTO_ORGANIZE_CHECK_INTERVAL_SEC))
 
+    async def _run_heartbeat(self):
+        """定期发送监控心跳"""
+        while self.running:
+            try:
+                # 收集统计信息
+                details = {
+                    "symbols": SYMBOLS,
+                    "depth_level": DEPTH_LEVEL,
+                    "consecutive_failures": self.consecutive_failures,
+                    "data_dir": str(DATA_DIR)
+                }
+                await self.heartbeat.send_heartbeat("RUNNING", details)
+            except Exception as e:
+                logger.debug(f"心跳守护异常: {e}")
+            await asyncio.sleep(60) # 每分钟一次
+
     async def connect(self):
         """主连接循环 (含断线重连)"""
         # 1. 静音 websockets 库的 INFO 日志，防止重连时控制台刷屏
         logging.getLogger("websockets").setLevel(logging.WARNING)
 
         asyncio.create_task(self._run_auto_organize())
+        asyncio.create_task(self._run_heartbeat())
 
         retry_delay = 1
         
