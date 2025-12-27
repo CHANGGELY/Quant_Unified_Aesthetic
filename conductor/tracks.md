@@ -1,5 +1,10 @@
 # Conductor Tracks
 
+## [x] Track: Backtest Framework Fusion & Localization
+*Link: [./conductor/tracks/backtest_fusion_20251226/](./conductor/tracks/backtest_fusion_20251226/)*
+
+---
+
 ## [x] Track: Codebase Localization and Branding Removal
 *Link: [./conductor/tracks/cn_rename_20251220/](./conductor/tracks/cn_rename_20251220/)*
 
