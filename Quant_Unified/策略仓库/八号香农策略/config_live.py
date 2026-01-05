@@ -18,6 +18,11 @@ class Config:
 strategy_config = Config(
     # 基础信息
     symbol="ETHUSDC",
+    # 账户净值/保证金计价币 (默认可从 symbol 推断；当账户同时有 USDT/USDC 时建议显式指定)
+    equity_asset="USDC",
+    # 初始本金 (用于 ROI 统计；单位需与 equity_asset 一致)
+    initial_capital=5000.0,
+    USE_REAL_TRADING=False,     # 环境配置: False=测试网 (默认), True=实盘 (Risk!)
     leverage=1,                 # 杠杆倍数 (1.0x, 无杠杆)
     maker_fee=0.0,              # Maker 费率 (必须为 0)
     taker_fee=0.0005,           # Taker 费率 (参考值，策略不应做 Taker)
@@ -39,19 +44,20 @@ strategy_config = Config(
     width_multiplier_crush=0.8, # Crush 模式下宽度收缩倍数
     
     # 物理下限 (Hard Constraints)
-    min_grid_width_bps=5.0,     # 最小网格宽度 (基点, 1bp=0.01%) - 5bps = 0.05%
+    min_grid_width_bps=1.0,     # 最小网格宽度 (基点, 1bp=0.01%) - 5bps = 0.05%
                                 # 假设 ETH=2000, 0.05% = 1U，大于 Spread
+    grid_layers=3,              # 网格层数 (多层阶梯挂单) - 建议 3-5 层以捕捉插针
+    hedge_mode=False,           # 持仓模式: False=单向持仓, True=双向持仓 (需要账户设置匹配)
     
     # CPRP 再平衡参数
     target_ratio=0.5,           # 目标持仓比例 (50% ETH / 50% USDC)
     rebalance_threshold=0.01,   # 触发再平衡的最小偏离度 (1%) - 可选
     
     # 订单更新参数 (Hysteresis)
-    update_threshold_ratio=0.2, # 只有当新宽度变化超过 20% 时才撤单重挂
+    update_threshold_ratio=0.05, # 只有当新宽度变化超过 5% 时才撤单重挂 (之前是20%太迟钝)
     
     # 资金管理
     total_capital_usdc=1000.0,  # 模拟资金 (回测用)
-    max_position_usdc=2000.0,   # 最大持仓价值限制
 )
 
 # 实盘资金配置 (覆盖用)

@@ -23,6 +23,7 @@ SECRET_KEY = os.getenv("BINANCE_SECRET_KEY")
 PROXY = os.getenv("BINANCE_PROXY")
 ACCOUNT_TYPE = os.getenv("BINANCE_ACCOUNT_TYPE", "normal").lower()
 API_MAX_QPS = float(os.getenv("BINANCE_API_MAX_QPS", "1"))
+USE_TESTNET = os.getenv("BINANCE_TESTNET", "false").lower() == "true"  # 新增：测试网开关
 _API_LOCK = threading.Lock()
 _LAST_API_TS = 0.0
 
@@ -39,6 +40,12 @@ exchange_config = {
     }
 }
 
+# 测试网配置
+if USE_TESTNET:
+    # 测试网不支持统一账户 (PAPI)，强制切换到普通模式
+    ACCOUNT_TYPE = 'normal'
+    logger.info("🧪 准备启用币安合约测试网 (Futures Testnet) 模式")
+
 if PROXY:
     exchange_config['proxies'] = {
         'http': PROXY,
@@ -47,6 +54,27 @@ if PROXY:
     logger.info(f"已启用代理: {PROXY}")
 
 exchange = ccxt.binanceusdm(exchange_config)
+
+# 如果是测试网/Demo Trading，在实例化后直接覆盖 URL
+if USE_TESTNET:
+    # CCXT 期货 sandbox 模式已弃用，必须使用 Demo Trading URL
+    # 参考: CCXT urls['demo'] 映射
+    demo_urls = {
+        'fapiPublic': 'https://demo-fapi.binance.com/fapi/v1',
+        'fapiPublicV2': 'https://demo-fapi.binance.com/fapi/v2',
+        'fapiPublicV3': 'https://demo-fapi.binance.com/fapi/v3',
+        'fapiPrivate': 'https://demo-fapi.binance.com/fapi/v1',
+        'fapiPrivateV2': 'https://demo-fapi.binance.com/fapi/v2',
+        'fapiPrivateV3': 'https://demo-fapi.binance.com/fapi/v3',
+        'fapiData': 'https://demo-fapi.binance.com/futures/data',
+    }
+    # 直接覆盖 exchange.urls['api']
+    if 'api' in exchange.urls:
+        for key, url in demo_urls.items():
+            exchange.urls['api'][key] = url
+    
+    logger.info(f"🧪 已激活 Demo Trading 模式 (合约测试交易)")
+    logger.info(f"   Fapi端点: {exchange.urls.get('api', {}).get('fapiPrivate', 'N/A')}")
 
 # 初始化统一账户专用对象 (用于获取余额 - PAPI)
 papi_exchange = None

@@ -1,3 +1,15 @@
+---
+title: Quant Unified Monitor
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: gradio
+sdk_version: 5.9.1
+python_version: 3.11
+app_file: app.py
+pinned: false
+---
+
 # 量化交易统一系统 (Quant Unified)
 
 本仓库整合了所有量化交易相关的组件，包括管理应用、策略仓库、后端服务和基础库。
@@ -26,6 +38,28 @@
 - **测试用例 (测试用例/)**: 单元测试与集成测试脚本。
 
 - **系统日志 (系统日志/)**: 统一存储各组件运行产生的日志。
+
+## 云端采集与数据同步 (New)
+
+本系统支持在 Hugging Face Spaces 上进行 7x24 小时自动行情采集，并自动同步到 Hugging Face Dataset。
+
+### 1. 云端配置 (Hugging Face)
+在 Space 的 **Settings** -> **Variables and secrets** 中添加以下 Secrets：
+- `SUPABASE_URL`: 你的 Supabase 项目 URL
+- `SUPABASE_ANON_KEY`: 你的 Supabase Anon Key
+- `HF_TOKEN`: **必须**。具有 `Write` 权限的 Hugging Face Token，用于将数据上传到 Dataset。
+
+### 2. 数据流向
+1. **采集**: `服务/数据采集/启动采集.py` 实时采集 Binance 数据并保存为 `.parquet` 碎片。
+2. **整理**: `app.py` 每 12 小时触发一次 `整理行情数据.py`，将碎片合并为每日文件。
+3. **同步**: 整理完成后，自动运行 `hf_sync.py` 将数据推送到数据集 `chenchuanshen/Quant_Market_Data`。
+
+### 3. 本地获取数据
+在本地项目根目录下运行：
+```bash
+python 下载云端数据.py
+```
+该脚本会自动对比云端与本地差异，只下载新增的行情数据。
 
 ## 开发指南
 

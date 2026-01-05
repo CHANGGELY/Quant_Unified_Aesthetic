@@ -1,36 +1,17 @@
-# -*- coding: utf-8 -*-
-"""
-七号VWAP策略 (V7.3) - 布林带 (VWAP Bands)
-逻辑:
-    1. 中轨 = VWAP (SMA or EMA)
-    2. 上轨 = VWAP + k * StdDev
-    3. 下轨 = VWAP - k * StdDev
-
-模式 (Logic Modes):
-    A. 趋势 (Trend_CenterToEdge):
-        - 做多: 收盘价上穿中轨
-        - 平多: 收盘价触及上轨 (止盈) 或 下穿中轨 (止损)
-        - 做空: 收盘价下穿中轨
-        - 平空: 收盘价触及下轨 (止盈) 或 上穿中轨 (止损)
-        * 适合: 趋势确立，吃中间最肥的一段
-
-    B. 反转 (Reversion_EdgeToCenter):
-        - 做空: 收盘价触及上轨
-        - 平空: 收盘价回归中轨
-        - 做多: 收盘价触及下轨
-        - 平多: 收盘价回归中轨
-        * 适合: 震荡行情，高抛低吸
-
-参数:
-    N: 均线/标准差周期
-    K: 轨道宽度 (标准差倍数)
-    Weighting: SMA / EMA
-"""
-
-import pandas as pd
-import numpy as np
+import sys
 from pathlib import Path
 import warnings
+import pandas as pd
+import numpy as np
+
+# ====== 自动计算项目根目录 ======
+CURRENT_FILE = Path(__file__).resolve()
+PROJECT_ROOT = CURRENT_FILE.parents[3]  # Quant_Unified
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from 基础库.common_core.backtest.metrics import 回测指标计算器
+from 基础库.common_core.backtest.可视化 import 回测可视化
 
 warnings.filterwarnings('ignore')
 
@@ -49,7 +30,8 @@ SLIPPAGE   = 0.0001
 INITIAL_CASH = 10000
 LEVERAGE   = 1.0
 
-DATA_PATH = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5')
+# 自动处理数据路径
+DATA_PATH = PROJECT_ROOT / "策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
 # =========================================================
 
 def load_data(file_path, start, end):
@@ -238,42 +220,50 @@ def run_backtest(df, n, k, weighting, mode, fee, slippage, leverage):
     equity = (1 + strat_ret).cumprod()
     return equity, pos_series
 
-def report(equity, pos):
+def report(equity, pos, close_price=None):
     if len(equity) == 0: return
-    final_equity = equity.iloc[-1]
-    total_ret = (final_equity - 1) * 100
-    final_cash = INITIAL_CASH * final_equity
     
-    days = (equity.index[-1] - equity.index[0]).days
-    years = max(days / 365.25, 0.001)
-    ann_ret = (final_equity ** (1/years)) - 1
+    # 还原权益 (归一化 -> 绝对值)
+    equity_val = equity.values * INITIAL_CASH
     
-    roll_max = equity.cummax()
-    max_dd = ((equity - roll_max) / roll_max).min()
-    calmar = ann_ret / abs(max_dd) if max_dd != 0 else 0
+    # 1. 统一指标报告
+    计算器 = 回测指标计算器(
+        权益曲线=equity_val,
+        初始资金=INITIAL_CASH,
+        时间戳=equity.index,
+        周期每年数量=525600
+    )
+    计算器.打印报告(策略名称=f"VWAP V7.3 ({LOGIC_MODE})")
     
-    trade_count = (pos - pos.shift(1).fillna(0)).abs().sum()
-
-    print("\n" + "🔥" * 20)
-    print("      VWAP V7.3 (布林带) 回测报告")
-    print("🔥" * 20)
-    print(f"💰 初始本金: {INITIAL_CASH:,.0f} USDT")
-    print(f"💎 最终资产: {final_cash:,.2f} USDT")
-    print(f"📈 总收益率: {total_ret:.2f}%")
-    print("-" * 35)
-    print(f"📅 年化收益: {ann_ret * 100:.2f}%")
-    print(f"🌊 最大回撤: {max_dd * 100:.2f}%")
-    print(f"⚖️  卡玛比率: {calmar:.2f}")
-    print(f"🔄 交易次数: {trade_count:.0f}")
-    print("-" * 35)
-    print(f"🛠️  参数: {LOGIC_MODE} | {WEIGHTING_TYPE} N={N} K={K}")
-    print("🔥" * 20)
+    # 2. 统一可视化图表 (默认开启)
+    if 'show_chart' not in globals() or globals()['show_chart']:
+        可视化 = 回测可视化(
+            权益曲线=equity_val,
+            时间序列=equity.index,
+            初始资金=INITIAL_CASH,
+            价格序列=close_price,
+            显示图表=True,
+            保存路径=PROJECT_ROOT / "策略仓库/七号VWAP策略/v7.3_布林带"
+        )
+        可视化.生成报告(策略名称=f"VWAP V7.3 ({LOGIC_MODE})")
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--no-chart", action="store_true", help="不显示图表")
+    args = parser.parse_args()
+    
+    # 全局变量控制图表开关
+    global show_chart
+    show_chart = not args.no_chart
+
     try:
         data = load_data(DATA_PATH, START_DATE, END_DATE)
         equity_curve, pos = run_backtest(data, N, K, WEIGHTING_TYPE, LOGIC_MODE, FEE_RATE, SLIPPAGE, LEVERAGE)
-        report(equity_curve, pos)
+        
+        # 传入价格序列用于绘图
+        report(equity_curve, pos, close_price=data['close'].values)
+        
     except Exception as e:
         print(f"❌ 运行失败: {e}")
         import traceback

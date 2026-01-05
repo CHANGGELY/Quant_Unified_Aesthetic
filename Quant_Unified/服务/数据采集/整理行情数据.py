@@ -42,6 +42,7 @@ import pandas as pd
 默认_DELETE_SOURCE = False   # (已弃用，建议用 MOVE_TO_BACKUP) 整理完后是否删除原始碎片文件？
 默认_DELETE_TODAY = False    # 是否移动/删除今天的碎片文件？(今天的还在采集，建议不移动)
 默认_CHECK_GAP = True        # 是否检查并生成空缺报告？
+默认_SYNC_HF = True          # 整理完成后是否自动同步到 Hugging Face Dataset
 默认_GAP_MS_DEPTH = 2000     # 深度数据超过 2 秒没数据就算小缺口
 默认_GAP_MS_TRADE = 10000    # 成交数据超过 10 秒没数据就算小缺口
 默认_GAP_SAMPLES = 50        # 每个文件最多记录多少个缺口样本
@@ -454,6 +455,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--delete-source", action="store_true", default=bool(默认_DELETE_SOURCE))
     parser.add_argument("--delete-today", action="store_true", default=bool(默认_DELETE_TODAY))
     parser.add_argument("--check-gap", action="store_true", default=bool(默认_CHECK_GAP))
+    parser.add_argument("--sync-hf", action="store_true", default=bool(默认_SYNC_HF))
     parser.add_argument("--gap-ms-depth", type=int, default=int(默认_GAP_MS_DEPTH))
     parser.add_argument("--gap-ms-trade", type=int, default=int(默认_GAP_MS_TRADE))
     parser.add_argument("--gap-samples", type=int, default=int(默认_GAP_SAMPLES))
@@ -645,6 +647,16 @@ def main(argv: list[str]) -> int:
     md_path = output_root / "整理报告.md"
     md_path.write_text("\n".join(md_lines), encoding="utf-8")
     print(f"可读报告已生成: {md_path}")
+
+    if args.sync_hf:
+        try:
+            from hf_sync import sync_to_hf
+            print("\n🚀 正在触发云端同步...")
+            sync_to_hf()
+        except ImportError:
+            print("\n⚠️ 无法加载 hf_sync.py，跳过同步。")
+        except Exception as e:
+            print(f"\n❌ 同步过程中出错: {e}")
 
     return 0
 

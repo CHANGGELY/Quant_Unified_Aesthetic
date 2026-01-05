@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
+import argparse
+
 # 自动计算项目根目录 (Quant_Unified)
 CURRENT_FILE = Path(__file__).resolve()
 PROJECT_ROOT = CURRENT_FILE.parents[2]
@@ -23,12 +25,47 @@ for folder in ['基础库', '服务', '策略仓库', '应用']:
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+# ============================================================
+# 安全启动检查 (在导入 API 前设置环境变量)
+# ============================================================
 # 导入策略依赖
 from 策略仓库.八号香农策略.config_live import strategy_config as cfg
-from 策略仓库.八号香农策略.api import binance as api
+
+# ============================================================
+# 安全启动检查
+# ============================================================
+use_real = getattr(cfg, 'USE_REAL_TRADING', False)
+
+if use_real:
+    print("\n" + "!"*50)
+    print("⚠️  警告: 配置文件显示 [USE_REAL_TRADING=True]")
+    print("⚠️  即将连接到币安【实盘】 (Production)！")
+    print("!"*50 + "\n")
+    try:
+        if os.getenv("可以跳过确认") != "yes":
+            confirm = input("请输入 'yes' 确认启动实盘: ")
+            if confirm != 'yes':
+                print("❌ 已取消启动。")
+                exit(0)
+    except EOFError:
+        pass 
+    
+    os.environ["BINANCE_TESTNET"] = "false"
+    print("🚀以此启动: 实盘模式 (Production)")
+else:
+    os.environ["BINANCE_TESTNET"] = "true"
+    os.environ["BINANCE_WS_SSL_VERIFY"] = "false"
+    print("🧪以此启动: 测试网模式 (Demo Trading)")
+from 策略仓库.八号香农策略.api import binance_raw as api  # 使用原生 requests 版本
 from 策略仓库.八号香农策略.api.ws_manager import BinanceWsManager
 from 策略仓库.八号香农策略.program.volatility import VolatilityEngine
 from 策略仓库.八号香农策略.program.cprp import CPRPEngine
+
+# ============================================================
+# 用户配置区
+# ============================================================
+INITIAL_CAPITAL = float(getattr(cfg, 'initial_capital', 5000.0))  # 初始本金 (单位需与净值计价币一致)
+# ============================================================
 
 # 配置日志
 logging.basicConfig(
@@ -44,6 +81,7 @@ class ShannonProphet:
     def __init__(self):
         self.config = cfg
         self.symbol = self.config.symbol
+        self.equity_asset = self._resolve_equity_asset()
         
         # 核心算子
         self.vol_engine = VolatilityEngine(self.config)
@@ -66,6 +104,7 @@ class ShannonProphet:
     async def initialize(self):
         """初始化"""
         logger.info(f"[{self.symbol}] 正在启动 8号香农策略...")
+        logger.info(f"净值计价币: {self.equity_asset} | 初始本金: {INITIAL_CAPITAL:.2f}")
         
         # 1. 获取初始价格
         price = api.fetch_symbol_price(self.symbol)
@@ -95,23 +134,74 @@ class ShannonProphet:
             logger.warning(f"预加载波动率数据失败: {e}")
 
     async def _sync_account(self):
-        """同步账户权益和持仓"""
+        """同步账户权益和持仓 (API 优化版: 单次请求)"""
         try:
-            # 获取权益 (USDT/USDC)
-            # 注意: 这里假设是单币种本位，或者统一账户
-            equity = api.fetch_account_equity('USDC') # 优先 USDC，因为是 ETH/USDC
-            if equity <= 0: 
-                equity = api.fetch_account_equity('USDT')
+            # 1. 混合查询 (权益 + 持仓)
+            # 权重: 5 (以前是 account(5) + position(5) = 10)
+            assets_to_try = []
+            for asset in [self.equity_asset, 'USDT', 'USDC']:
+                asset = str(asset).upper().strip()
+                if asset and asset not in assets_to_try:
+                    assets_to_try.append(asset)
+
+            data = None
+            for asset in assets_to_try:
+                data = await asyncio.to_thread(api.fetch_account_status, asset, self.symbol)
+                if data:
+                    break
             
-            self.equity_cache = equity
+            if data:
+                # 解包数据
+                wb = data['wallet_balance']
+                upnl = data['unrealized_pnl']
+                mb = data['margin_balance']
+                ab = data['available_balance']
+                
+                pos_amt = data.get('position_amt', 0.0)
+                pos_entry = data.get('position_entry', 0.0)
+                
+                # 更新缓存
+                self.equity_cache = mb 
+                self.position_cache = pos_amt
+                
+                # 计算实盘收益率 (ROI) = (当前净值 - 初始本金) / 初始本金
+                # 这是最真实的战绩，无论你中间怎么折腾，都看最后剩多少钱 vs 投入多少钱
+                roi = (mb - INITIAL_CAPITAL) / INITIAL_CAPITAL if INITIAL_CAPITAL else 0.0
+                
+                logger.info(
+                    f"账户状态 | "
+                    f"净值({data.get('asset', self.equity_asset)}): {mb:.2f} | "
+                    f"ROI: {roi:.2%} | "
+                    f"持仓: {pos_amt:.4f} (@{pos_entry:.1f})"
+                )
+            else:
+                logger.warning("账户同步: 获取失败")
             
-            # 获取持仓
-            pos_data = api.fetch_position(self.symbol)
-            self.position_cache = pos_data['amount']
-            
-            logger.info(f"账户同步 | 净值: {self.equity_cache:.2f} | 持仓: {self.position_cache:.4f} ETH")
         except Exception as e:
             logger.error(f"账户同步失败: {e}")
+
+    def _resolve_equity_asset(self) -> str:
+        """确定账户净值计价币：优先读配置，其次从交易对尾缀推断。"""
+        configured = (
+            getattr(self.config, 'equity_asset', None)
+            or getattr(self.config, 'margin_asset', None)
+            or getattr(self.config, 'account_asset', None)
+        )
+        if configured:
+            return str(configured).upper().strip()
+
+        symbol = str(getattr(self.config, 'symbol', '') or '').upper().strip()
+        if not symbol:
+            return 'USDT'
+
+        # 常见计价币尾缀（按长度降序，避免误匹配）
+        common_quotes = ['FDUSD', 'USDT', 'USDC', 'BUSD', 'TUSD', 'USDP', 'DAI', 'USD']
+        common_quotes.sort(key=len, reverse=True)
+        for quote in common_quotes:
+            if symbol.endswith(quote):
+                return quote
+
+        return 'USDT'
 
     async def on_price_update(self, price: float):
         """
@@ -136,7 +226,14 @@ class ShannonProphet:
         """
         while True:
             try:
-                # 1. 采样价格并更新波动率
+                # 1. 通过 REST API 获取最新价格 (Weight 1, 每分钟一次)
+                # 已移除行情 WS 订阅，改用 REST API 省流量
+                try:
+                    self.current_price = await asyncio.to_thread(api.fetch_symbol_price, self.symbol)
+                except Exception as e:
+                    logger.warning(f"获取价格失败: {e}")
+                
+                # 2. 采样价格并更新波动率
                 if self.current_price > 0:
                      self.vol_engine.add_price(self.current_price, time.time())
                 
@@ -168,6 +265,12 @@ class ShannonProphet:
                 
                 should_update = False
                 
+                # ====== 新增：仓位变化检测 (最重要！成交后立即补单) ======
+                if hasattr(self, 'last_position') and self.position_cache != self.last_position:
+                    logger.info(f"触发更新: 仓位变化 {self.last_position:.4f} -> {self.position_cache:.4f} (有成交!)")
+                    should_update = True
+                self.last_position = self.position_cache
+                
                 # 检查宽度变化
                 width_diff_ratio = 0.0
                 if self.last_grid_width > 0:
@@ -175,21 +278,46 @@ class ShannonProphet:
                 
                 update_thresh = getattr(self.config, 'update_threshold_ratio', 0.2)
                 
-                if width_diff_ratio > update_thresh:
+                if not should_update and width_diff_ratio > update_thresh:
                     logger.info(f"触发更新: 网格宽度变化 {width_diff_ratio:.2%} > {update_thresh:.2%}")
                     should_update = True
-                elif regime == 'SPIKE' and self.last_grid_width != current_width_pct:
+                elif not should_update and regime == 'SPIKE' and self.last_grid_width != current_width_pct:
                     # SPIKE 状态下稍微变动就立即更新 (防穿仓)
                     logger.info("触发更新: SPIKE 状态积极风控")
                     should_update = True
-                elif not self.active_orders['BUY'] and buy_order:
+                elif not should_update and not self.active_orders['BUY'] and buy_order:
                     # 缺单补单
+                    logger.info("触发更新: 缺少买单")
                     should_update = True
-                elif not self.active_orders['SELL'] and sell_order:
+                elif not should_update and not self.active_orders['SELL'] and sell_order:
+                    logger.info("触发更新: 缺少卖单")
                     should_update = True
                 
-                # 还可以检查价格偏离度 (如果当前挂单价格和理想价格差太远)
-                # ... 暂时省略，依赖宽度变化
+                # ====== 新增：价格偏离检测 ======
+                # 如果当前挂单价格与理想价格偏差过大，强制更新
+                if not should_update:
+                    try:
+                        current_orders = await asyncio.to_thread(api.fetch_open_orders, self.symbol)
+                        # buy_order / sell_order 现在是列表，取第一层做偏离对比
+                        ideal_buy_price = buy_order[0]['price'] if buy_order else None
+                        ideal_sell_price = sell_order[0]['price'] if sell_order else None
+                        
+                        for order in current_orders:
+                            order_price = order['price']
+                            if order['side'] == 'BUY' and ideal_buy_price:
+                                deviation = abs(order_price - ideal_buy_price) / ideal_buy_price
+                                if deviation > 0.5:  # 偏差超过 50% 就强制更新
+                                    logger.info(f"触发更新: 买单价格偏离过大 {deviation:.2%}")
+                                    should_update = True
+                                    break
+                            elif order['side'] == 'SELL' and ideal_sell_price:
+                                deviation = abs(order_price - ideal_sell_price) / ideal_sell_price
+                                if deviation > 0.5:
+                                    logger.info(f"触发更新: 卖单价格偏离过大 {deviation:.2%}")
+                                    should_update = True
+                                    break
+                    except Exception as e:
+                        logger.warning(f"价格偏离检测失败: {e}")
                 
                 if should_update:
                     await self.execute_orders(buy_order, sell_order)
@@ -213,90 +341,35 @@ class ShannonProphet:
             return 0.5 * self.current_price + 0.5 * self.vol_engine.ewma_price
         return self.current_price
 
-    async def _check_depth_and_place(self, side, price, quantity):
+    async def _check_depth_and_place(self, side, price, quantity, depth_cache=None):
         """
-        检查盘口深度并下单 (拆单逻辑)
+        下单逻辑 (已禁用拆单/冰山订单)
         :param side: 'BUY' or 'SELL'
         :param price: Base Price
         :param quantity: Total Quantity
+        :param depth_cache: (已弃用)
         """
         if quantity <= 0:
             return
 
-        # 1. 获取盘口深度 (Top 5)
-        try:
-            depth = await asyncio.to_thread(api.exchange.fetch_order_book, self.symbol, 5)
-        except Exception as e:
-            logger.warning(f"获取盘口深度失败: {e}，将采用单笔挂单")
-            depth = None
-
+        # 用户明确要求禁用盘口检测和拆单
+        # Reason: "我就这么点资金完全用不到冰山订单"
         split_orders = False
-        top_qty = 0.0
         
-        if depth:
-            if side == 'BUY':
-                # 挂买单，参考卖盘深度(防止吃单)还是买盘深度(防止墙太厚)?
-                # 用户说: "如果你想买10个ETH，但现在卖一价上只有1个..." -> 指的是 Taker 吃单风险
-                # 但我们是 Maker。
-                # "盘口深度监测：挂单前检查当前盘口 P_ask / P_bid 位置的深度"
-                # "若挂单量 > 深度的 50%，则拆分挂单"
-                # 解释: 如果我在 Best Bid 挂单，而 Best Bid 只有 1 个 ETH，我挂 10 个，我变成了一个巨型墙 (Iceberg needed)。
-                # 或者: 我挂单价格如果是 P_bid，我应该检查 P_bid 这一档的深度？
-                # 用户意图应该是：不要制造巨大的 Buy Wall 或 Sell Wall，也不要试图一次性吞噬(如果误操作成Taker)。
-                # 这里我们检查同方向的 Best 深度。
-                bids = depth.get('bids', [])
-                if bids:
-                    top_qty = bids[0][1] # [Price, Qty]
+        # 直接执行单笔下单
+        try:
+            hedge_mode = getattr(self.config, 'hedge_mode', False)
+            if hedge_mode:
+                pos_side = 'LONG' if side == 'BUY' else 'SHORT'
+                await asyncio.to_thread(api.place_limit_order, self.symbol, side, price, quantity, position_side=pos_side, post_only=True)
             else:
-                asks = depth.get('asks', [])
-                if asks:
-                    top_qty = asks[0][1]
-
-            if top_qty > 0 and quantity > 0.5 * top_qty:
-                split_orders = True
-                logger.info(f"[{side}] 挂单量 {quantity:.4f} > 50% 盘口首层 {top_qty:.4f}，触发拆单")
-
-        # 2. 执行下单
-        tick_size = 0.01  # 需从 exchange info 获取，这里简化假设或从 config 读
-        # 正确做法: api._get_filters (需暴露或再次获取)
-        tick, _, _ = api._get_filters(self.symbol)
-        if tick: tick_size = float(tick)
-
-        if split_orders:
-            # 拆分 3 笔: 30%, 30%, 40%
-            # 价格递减 (Buy) 或 递增 (Sell) 以分散压力
-            q1 = quantity * 0.3
-            q2 = quantity * 0.3
-            q3 = quantity - q1 - q2
-            
-            orders_to_place = []
-            if side == 'BUY':
-                # 买单向下铺: P, P-Tick, P-2Tick
-                orders_to_place.append((price, q1))
-                orders_to_place.append((price - tick_size, q2))
-                orders_to_place.append((price - 2 * tick_size, q3))
-            else:
-                # 卖单向上铺: P, P+Tick, P+2Tick
-                orders_to_place.append((price, q1))
-                orders_to_place.append((price + tick_size, q2))
-                orders_to_place.append((price + 2 * tick_size, q3))
-            
-            for p, q in orders_to_place:
-                try:
-                    await asyncio.to_thread(api.place_limit_order, self.symbol, side, p, q, post_only=True)
-                    logger.info(f"  -> 拆单成功: {side} {p:.2f} x {q:.4f}")
-                except Exception as e:
-                    logger.error(f"  -> 拆单失败: {e}")
-        else:
-            # 单笔
-            try:
                 await asyncio.to_thread(api.place_limit_order, self.symbol, side, price, quantity, post_only=True)
-                logger.info(f"挂单成功: {side} {price:.2f} x {quantity:.4f}")
-            except Exception as e:
-                logger.error(f"挂单失败: {e}")
+            logger.info(f"挂单成功: {side} {price:.2f} x {quantity:.4f}")
+        except Exception as e:
+            logger.error(f"挂单失败: {e}")
 
-    async def execute_orders(self, ideal_buy, ideal_sell):
-        """执行订单更新 (撤销旧单 -> 挂新单)"""
+    async def execute_orders(self, ideal_buy_list, ideal_sell_list):
+        """执行订单更新 (撤销旧单 -> 挂新单) - 支持多层挂单"""
         logger.info(">>> 开始调整挂单...")
         
         try:
@@ -306,41 +379,85 @@ class ShannonProphet:
             self.active_orders['SELL'] = None
         except Exception as e:
             logger.error(f"撤单失败: {e}")
-            # 继续尝试挂单，或者直接返回? 为了安全建议返回
             return
 
-        # 挂新单 (带深度检查)
-        if ideal_buy:
-             await self._check_depth_and_place('BUY', ideal_buy['price'], ideal_buy['qty'])
-             self.active_orders['BUY'] = ideal_buy # 记录主要信息
+        # 挂新单 (循环处理多层)
+        # 兼容处理: 如果传入的是单个 dict (旧逻辑残留)，转为 list
+        if isinstance(ideal_buy_list, dict): ideal_buy_list = [ideal_buy_list]
+        if isinstance(ideal_sell_list, dict): ideal_sell_list = [ideal_sell_list]
+        
+        # 记录第一层订单作为主要参考 (用于后续的 diff check)
+        # 注意: active_orders['BUY'] 仅用于逻辑判断"是否挂了单"，存第一层足矣
+        
+        if ideal_buy_list:
+            for order in ideal_buy_list:
+                await self._check_depth_and_place('BUY', order['price'], order['qty'])
+            self.active_orders['BUY'] = ideal_buy_list[0]
 
-        if ideal_sell:
-             await self._check_depth_and_place('SELL', ideal_sell['price'], ideal_sell['qty'])
-             self.active_orders['SELL'] = ideal_sell
+        if ideal_sell_list:
+            for order in ideal_sell_list:
+                await self._check_depth_and_place('SELL', order['price'], order['qty'])
+            self.active_orders['SELL'] = ideal_sell_list[0]
 
 async def main():
     trader = ShannonProphet()
     await trader.initialize()
     
-    # 启动 WS (可选，用于实时更新价格，这里为了简化先只用 Polling 或者 Logic Loop 内的 Sample)
-    # 按照设计 logic_loop 每分钟跑一次并 update volatility
-    # 但我们需要实时价格来计算 calculate_rebalance? No, rebalance is also minutely.
-    # 所以简单的 Loop 足够。
+    # 启动 WebSocket 管理器
+    ws_manager = BinanceWsManager(symbols=[trader.symbol])
     
-    # 如果要更实时的价格，可以开一个 task 持续 fetch price
-    async def price_updater():
-        while True:
-            try:
-                p = api.fetch_symbol_price(trader.symbol)
-                await trader.on_price_update(p)
-            except Exception:
-                pass
-            await asyncio.sleep(5) # 5秒更新一次价格用于显示
+    # 定义 WS 回调处理函数
+    async def handle_ws_message(msg):
+        """
+        处理 WS 消息
+        """
+        try:
+            if not isinstance(msg, dict):
+                return
+            
+            # 跳过非行情消息 (如订单更新、账户更新等)
+            event_type = msg.get('e', '')
+            if event_type in ['ORDER_TRADE_UPDATE', 'ACCOUNT_UPDATE', 'listenKeyExpired']:
+                # 这些是用户数据推送，不是行情，跳过
+                return
+            
+            # 兼容 ticker 和 bookTicker
+            price = 0.0
+            if 'b' in msg and 'a' in msg: # bookTicker
+                try:
+                    bid = float(msg['b'])
+                    ask = float(msg['a'])
+                    if bid > 0 and ask > 0:
+                        price = (bid + ask) / 2
+                except (ValueError, TypeError):
+                    return  # 无法解析，跳过
+            elif 'c' in msg: # miniTicker / ticker
+                try:
+                    price = float(msg['c'])
+                except (ValueError, TypeError):
+                    return
+            
+            if price > 0:
+                await trader.on_price_update(price)
+        except Exception as e:
+            logger.error(f"WS 消息处理异常: {e}")
 
-    task1 = asyncio.create_task(trader.logic_loop())
-    task2 = asyncio.create_task(price_updater())
+    ws_manager.add_listener(handle_ws_message)
     
-    await asyncio.gather(task1, task2)
+    # 启动 WS
+    ws_task = asyncio.create_task(ws_manager.start())
+    
+    # 启动主逻辑循环
+    logic_task = asyncio.create_task(trader.logic_loop())
+    
+    logger.info("策略主循环与 WebSocket 数据流已启动")
+    
+    try:
+        await asyncio.gather(ws_task, logic_task)
+    except Exception as e:
+        logger.error(f"主程序异常: {e}")
+    finally:
+        await ws_manager.stop()
 
 if __name__ == "__main__":
     try:

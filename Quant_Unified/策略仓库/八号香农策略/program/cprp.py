@@ -12,114 +12,81 @@ class CPRPEngine:
         self.config = config
         self.target_ratio = getattr(config, 'target_ratio', 0.5) # 默认 50%
 
-    def calculate_rebalance(self, current_price, position_qty, total_equity, grid_width):
+    def calculate_rebalance(self, current_price, position_qty, total_equity, base_grid_width):
         """
-        计算再平衡订单
+        计算多层网格挂单 (3层结构)
         
-        :param current_price: 当前市场价格
-        :param position_qty: 当前持仓数量 (正数为多, 0或负数视为0，因为本策略只做多现货或做多合约)
-                             注意: 纯 Maker 策略通常假设持有现货或做多。如果是合约全仓模式，Short 是反向操作。
-                             这里假设是标准 Long/Cash 模型。
-        :param total_equity: 账户总净值 (USDT/USDC 计价)
-        :param grid_width: 当前动态网格宽度 (比如 0.005)
-        :return: (buy_order, sell_order)
-                 order 格式: {'price': float, 'qty': float} 或 None
+        :param current_price: 当前市场价
+        :param position_qty: 当前持仓数量 (ETH)
+        :param total_equity: 总权益 (净值计价币，如 USDC/USDT，需与 current_price 的计价币一致)
+        :param base_grid_width: 基础网格宽度 (小数)
+        :return: (buy_orders, sell_orders)  # lists of dicts
         """
-        if current_price <= 0 or total_equity <= 0:
-            return None, None
-
-        # 1. 计算当前持仓价值和目标价值
-        # 强制处理: 如果是空单，暂且当做负数处理，但 CPRP 通常用于 Spot 或 Long-Only
-        # 策略描述是 ETHUSDC 50%/50%，暗示是 Long/Cash 组合
-        curr_pos_val = position_qty * current_price
         
-        target_pos_val = total_equity * self.target_ratio
+        buy_orders = []
+        sell_orders = []
         
-        # 2. 计算挂单价格
-        # 买单价: P_bid = P * (1 - X / (1+X))
-        # 卖单价: P_ask = P * (1 + X)
-        # 逻辑依据: 
-        #   Sell: 上涨 X 比例后卖出
-        #   Buy:  下跌到 "上涨 X 恢复后回到原价" 的位置? 
-        #   公式源自 User Prompt: P_bid = P_market * (1 - X/(1+X)) 
-        #   这意味着如果以 P_bid 买入，上涨 (1+X) 倍后价格回到 P_market ? 
-        #   Validation: P_bid * (1+X) = P * (1 - X/(1+X)) * (1+X) 
-        #                             = P * ((1+X-X)/(1+X)) * (1+X) 
-        #                             = P * (1/(1+X)) * (1+X) = P.  Correct.
-        #   Shannon's rebalancing math: Buy low so that when it goes back up we profit.
+        # 硬性最小下单数量 (固定 0.007 ETH)
+        min_qty = 0.007
         
-        price_bid = current_price * (1 - grid_width / (1 + grid_width))
-        price_ask = current_price * (1 + grid_width)
-
-        # 3. 计算数量 (核心逻辑)
-        # 即使不做 Taker，我们也需要预挂单。
-        # 挂单的目标是：一旦成交，仓位比例回归 50%？或者仅仅是切分资金？
-        # 策略文档: "计算为了回归 50% 下一单买单需要买多少"
+        # 从配置读取层数，默认 3 层
+        grid_layers = getattr(self.config, 'grid_layers', 3)
         
-        # 场景 A: 价格跌到 P_bid
-        # 假设成交，此时价格是 P_bid。
-        # 我们的总资产会变吗？ Maker买入成交一瞬间资产不变（现金换币），但价格跌了，总权益缩水。
-        # 简化计算：按当前时刻的 Total Equity 估算目标持仓量。
-        # Target_Qty_at_Current = (Total_Equity * 0.5) / Current_Price
-        # Diff = Target - Current_Pos
-        # 如果 Diff > 0, 说明缺货，要在下方挂买单。
-        # 如果 Diff < 0, 说明货多，要在上方挂卖单。
-        
-        # 为了更精确：我们希望成交后的持仓也是平衡的。
-        # 但由于我们不知道成交时的确切 Total Equity (随价格变动)，通常的做法是：
-        # 始终挂双边单。
-        # Buy Side: 假设我们要把手中的 USDC 买入一部分变成 ETH。
-        # Sell Side: 假设我们要把手中的 ETH 卖出一部分变成 USDC。
-        
-        # 按照双向挂单逻辑 (Grid):
-        # 只有在持仓极度偏离时才只挂单边吗？
-        # 不，Shannon Grid 是双边挂单。
-        # 买单量: 如果价格跌到 P_bid，我们希望买入多少？
-        # 经典的香农策略是固定金额定投？或是恒定比例？
-        # Constant Proportion:
-        #   Target Value = Equity * 0.5.
-        #   我们挂单的目的是捕获波动。
-        #   Prompt 指出: "计算为了回归 50% ... 需要买多少"
-        #   这实际上暗示每一笔成交都在试图维持平衡。
-        
-        # 让我们计算 P_bid 成交时的目标数量:
-        # Est_Equity_at_Bid = Cash + Pos * P_bid
-        # Target_Pos_Val_at_Bid = Est_Equity_at_Bid * 0.5
-        # Target_Qty_at_Bid = Target_Pos_Val_at_Bid / P_bid
-        # Need_Buy_Qty = Target_Qty_at_Bid - Current_Pos
-        
-        # 同理计算 P_ask 成交时的目标数量:
-        # Est_Equity_at_Ask = Cash + Pos * P_ask
-        # Target_Pos_Val_at_Ask = Est_Equity_at_Ask * 0.5
-        # Target_Qty_at_Ask = Target_Pos_Val_at_Ask / P_ask
-        # Need_Sell_Qty = Current_Pos - Target_Qty_at_Ask
-        
-        # (1) Buy Calculation details
-        # Est_Equity_at_Bid = (Total_Equity - Pos * Current_Price) + Pos * P_bid 
-        #                   = Total_Equity - Pos * (Current_Price - P_bid)
-        # Target_Qty_Bid    = 0.5 * Est_Equity_at_Bid / P_bid
-        # Buy_Qty           = Target_Qty_Bid - Pos
-        
-        estimated_equity_bid = total_equity - position_qty * (current_price - price_bid)
-        target_qty_bid = (estimated_equity_bid * self.target_ratio) / price_bid
-        buy_qty = target_qty_bid - position_qty
-        
-        # (2) Sell Calculation details
-        estimated_equity_ask = total_equity + position_qty * (price_ask - current_price)
-        target_qty_ask = (estimated_equity_ask * self.target_ratio) / price_ask
-        sell_qty = position_qty - target_qty_ask
-        
-        buy_order = None
-        sell_order = None
-        
-        # 只有当计算出的数量 > 0 时才挂单
-        # 甚至可以加一个最小阈值，防止微小碎单
-        min_qty_notional = 10.0 # 假设最小下单价值 10U
-        
-        if buy_qty * price_bid > min_qty_notional:
-            buy_order = {'price': price_bid, 'qty': buy_qty}
+        # ====== 买单计算 (向下阶梯) ======
+        cumulative_buy_qty = 0.0  # 累计已挂买单量
+        for i in range(1, grid_layers + 1):
+            # 价格递减: 1x, 2x, 3x 宽度
+            width_multiplier = i
+            price_bid = current_price * (1 - width_multiplier * base_grid_width)
             
-        if sell_qty * price_ask > min_qty_notional:
-            sell_order = {'price': price_ask, 'qty': sell_qty}
+            # 计算在该价格下，为了达到 50% 目标，总持仓应该是多少
+            estimated_equity = total_equity - position_qty * (current_price - price_bid) 
+            target_pos_value = estimated_equity * self.target_ratio
+            target_pos_qty = target_pos_value / price_bid
             
-        return buy_order, sell_order
+            # 我们需要的总持仓量 = target_pos_qty
+            # 我们已有的 = position_qty
+            # L1_qty + L2_qty + ... + Li_qty = target_pos_qty - position_qty
+            # 所以 Li_qty = target - pos - sum(prev_layers)
+            
+            needed_qty = target_pos_qty - position_qty - cumulative_buy_qty
+            
+            # 确保每层至少 min_qty，或者如果 needed < 0 (已经买多了) 就不挂
+            qty_to_place = 0.0
+            
+            if needed_qty > 0:
+                qty_to_place = max(needed_qty, min_qty)
+            elif position_qty * current_price < total_equity * 0.6: 
+                 # 即使算出来不需要买，如果持仓偏低 (<60%) 且是第一层/第二层，强制挂个最小单
+                 qty_to_place = min_qty
+            
+            if qty_to_place > 0:
+                buy_orders.append({'price': price_bid, 'qty': qty_to_place})
+                cumulative_buy_qty += qty_to_place
+        
+        # ====== 卖单计算 (向上阶梯) ======
+        cumulative_sell_qty = 0.0
+        for i in range(1, grid_layers + 1):
+            width_multiplier = i
+            price_ask = current_price * (1 + width_multiplier * base_grid_width)
+            
+            estimated_equity = total_equity + position_qty * (price_ask - current_price)
+            target_pos_value = estimated_equity * self.target_ratio
+            target_pos_qty = target_pos_value / price_ask
+            
+            # 需要卖出的量 = current_pos - target_pos - cumulative_sold
+            needed_sell = position_qty - target_pos_qty - cumulative_sell_qty
+            
+            qty_to_place = 0.0
+            
+            if needed_sell > 0:
+                qty_to_place = max(needed_sell, min_qty)
+            elif position_qty * current_price > total_equity * 0.4:
+                # 即使算出来不需要卖，如果持仓偏高 (>40%)，强制挂个最小单
+                qty_to_place = min_qty
+                
+            if qty_to_place > 0:
+                sell_orders.append({'price': price_ask, 'qty': qty_to_place})
+                cumulative_sell_qty += qty_to_place
+            
+        return buy_orders, sell_orders
