@@ -60,7 +60,8 @@ class HeartbeatManager:
     """
     def __init__(self):
         self.url = os.getenv("SUPABASE_URL")
-        self.key = os.getenv("SUPABASE_KEY")
+        # 兼容多种环境变量命名方式：云端优先用 SERVICE_ROLE 或 ANON，本地开发可用简写
+        self.key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY")
         self.client = None
         if self.url and self.key:
             try:

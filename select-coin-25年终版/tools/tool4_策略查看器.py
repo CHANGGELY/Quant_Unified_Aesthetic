@@ -1,7 +1,5 @@
 """
-邢不行™️选币框架 - 策略查看器 (Streamlit版)
-Python数字货币量化投资课程
-
+策略查看器 (Streamlit版)
 使用说明：
         在终端运行: streamlit run tools/tool4_策略查看器.py
 """

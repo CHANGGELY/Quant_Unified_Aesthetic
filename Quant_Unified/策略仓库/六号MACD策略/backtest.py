@@ -200,6 +200,7 @@ def main() -> None:
     parser.add_argument("--fast", type=int, default=None, help="MACD fast span (minutes, default from config)")
     parser.add_argument("--slow", type=int, default=None, help="MACD slow span (minutes, default from config)")
     parser.add_argument("--signal", type=int, default=None, help="MACD signal span (minutes, default from config)")
+    parser.add_argument("--no-chart", action="store_true", help="Do not show visualization chart")
     args = parser.parse_args()
 
     cfg = MacdStrategy6Config()
@@ -250,29 +251,30 @@ def main() -> None:
         ask_col="close",
     )
 
-    net = sim.equity / cfg.initial_capital
-    dd = net / net.cummax() - 1.0
-    total_return = float(net.iloc[-1] - 1.0)
-    max_dd = float(dd.min())
-    n_turnover = int((sim.turnover > 0).sum())
-    total_cost = float(sim.cost.sum())
+    # 计算统一指标
+    from 基础库.common_core.backtest.metrics import 回测指标计算器
+    from 基础库.common_core.backtest.可视化 import 回测可视化
 
-    equity_df = pd.DataFrame(
-        {
-            "candle_begin_time": net.index,
-            "多空资金曲线": net.to_numpy(),
-        }
+    计算器 = 回测指标计算器(
+        权益曲线=sim.equity.to_numpy(),
+        初始资金=cfg.initial_capital,
+        时间戳=sim.equity.index,
+        周期每年数量=525600,  # 分钟级数据 (60*24*365)
     )
-    equity_df["本周期多空涨跌幅"] = equity_df["多空资金曲线"].astype(float).pct_change().fillna(0.0)
-    equity_df["是否爆仓"] = 0
-    rtn, _, _, _ = strategy_evaluate(equity_df, net_col="多空资金曲线", pct_col="本周期多空涨跌幅")
+    计算器.打印报告(策略名称="六号 MACD 策略")
 
-    print(
-        f"[MACD6] return={total_return*100:.2f}% max_dd={max_dd*100:.2f}% "
-        f"turnover_events={n_turnover} cost={total_cost:.2f}USDT"
-    )
-    print(rtn)
-
+    # 可视化 (默认开启，除非指定 --no-chart)
+    show_chart = not getattr(args, "no_chart", False)
+    if show_chart:
+        可视化 = 回测可视化(
+            权益曲线=sim.equity.to_numpy(),
+            时间序列=sim.equity.index,
+            初始资金=cfg.initial_capital,
+            价格序列=close,
+            显示图表=True,
+            保存路径=Path(__file__).parent
+        )
+        可视化.生成报告(策略名称="六号 MACD 策略")
 
 if __name__ == "__main__":
     main()

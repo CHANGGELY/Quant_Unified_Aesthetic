@@ -1,0 +1,34 @@
+# Data and Logs
+data/
+cache/
+系统日志/
+.deps/
+应用/
+# 策略仓库/ - 不再排除，让代码文件可以被追踪 (数据文件已被 *.h5 等规则排除)
+4 号做市策略/
+
+# Data files
+*.h5
+*.parquet
+*.csv
+*.db
+*.sqlite
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+env/
+venv/
+.env
+
+# IDEs
+.vscode/
+.idea/
+.trae/
+
+# Logs
+*.log

@@ -5,15 +5,26 @@ import time
 import logging
 import os
 import ssl
-from 策略仓库.二号网格策略.api import binance as api
+from 策略仓库.八号香农策略.api import binance_raw as api  # 使用原生 requests 版本
 
 logger = logging.getLogger(__name__)
 
 class BinanceWsManager:
     def __init__(self, symbols=None):
         self.listen_key = None
-        self.market_base_url = "wss://fstream.binance.com/stream?streams="
-        self.user_base_url = "wss://fstream.binance.com/pm/ws/"
+        self.use_testnet = getattr(api, 'USE_TESTNET', False)
+        
+        # 区分实盘和测试网地址
+        if self.use_testnet:
+            # 币安 Demo Trading 使用的 WebSocket 地址
+            # 注意: 根据官方文档，Demo Trading WS 仍为 fstream.binancefuture.com
+            # 参考: https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info
+            self.market_base_url = "wss://fstream.binancefuture.com/stream?streams="
+            self.user_base_url = "wss://fstream.binancefuture.com/ws/"
+        else:
+            self.market_base_url = "wss://fstream.binance.com/stream?streams="
+            self.user_base_url = "wss://fstream.binance.com/ws/"
+
         self.proxy = getattr(api, 'PROXY', None)
         self.ssl_verify = (os.getenv('BINANCE_WS_SSL_VERIFY', 'true').lower() != 'false')
         if self.proxy:
@@ -81,9 +92,10 @@ class BinanceWsManager:
         connector = aiohttp.TCPConnector(ssl=self.ssl_context if self.ssl_context else None)
         async with aiohttp.ClientSession(connector=connector) as session:
             self.session = session
+            # 只启动用户数据 WS (订单通知)
+            # 行情数据改用 REST API 每分钟获取 (省流量)
             user_task = asyncio.create_task(self._run_user_ws())
-            market_task = asyncio.create_task(self._run_market_ws())
-            await asyncio.gather(user_task, market_task)
+            await user_task
 
     async def stop(self):
         self.running = False
@@ -97,7 +109,11 @@ class BinanceWsManager:
     async def _run_user_ws(self):
         while self.running:
             try:
-                url = f"{self.user_base_url}{self.listen_key}"
+                # user_base_url 已经包含 /ws/，这里为了稳妥，检查一下
+                if self.user_base_url.endswith('/'):
+                    url = f"{self.user_base_url}{self.listen_key}"
+                else:
+                    url = f"{self.user_base_url}/{self.listen_key}"
                 logger.info(f"连接用户数据WS: {url}")
                 if self.proxy:
                     logger.info(f"用户WS使用代理: {self.proxy}")
