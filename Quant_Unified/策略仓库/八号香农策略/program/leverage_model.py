@@ -127,6 +127,11 @@ def resolve_leverage_spec(
         if z <= 0:
             raise ValueError(f"position_leverage/leverage 必须 > 0, 当前={z}")
         w = nominal_from_position_leverage(z, r)
+        if has_z and has_legacy:
+            z1 = float(z_cfg)
+            z2 = float(z_legacy)
+            if abs(z1 - z2) / max(1.0, z1) > 1e-6:
+                raise ValueError(f"position_leverage={z1} 与兼容字段 leverage={z2} 不一致，请只保留一个或保持一致")
 
     if max_position_leverage is None:
         max_position_leverage = getattr(config, "max_position_leverage", None) or getattr(config, "max_leverage", None)
@@ -134,4 +139,3 @@ def resolve_leverage_spec(
         raise ValueError(f"逐笔杠杆 Z={z:.4f} 超过上限 {float(max_position_leverage):.4f}")
 
     return LeverageSpec(nominal_leverage=w, position_leverage=z)
-

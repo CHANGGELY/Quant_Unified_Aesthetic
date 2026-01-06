@@ -289,6 +289,45 @@ def fetch_account_status(asset_name: str = 'USDT', symbol: str = None) -> dict:
         return None
 
 
+def set_leverage(symbol: str, leverage: int) -> dict:
+    """
+    设置逐笔杠杆（合约 leverage）
+    文档: POST /fapi/v1/leverage
+    """
+    lev = int(leverage)
+    if lev < 1:
+        raise ValueError(f"leverage 必须 >= 1, 当前={lev}")
+    参数 = {'symbol': symbol, 'leverage': lev}
+    res = _请求('POST', '/fapi/v1/leverage', 参数, 需要签名=True)
+    logger.info(f"设置杠杆成功: {symbol} leverage={lev}")
+    return res
+
+
+def set_margin_type(symbol: str, margin_type: str = "CROSSED") -> dict:
+    """
+    设置保证金模式（CROSSED / ISOLATED）
+    文档: POST /fapi/v1/marginType
+    """
+    mt = str(margin_type).upper().strip()
+    if mt == "CROSS":
+        mt = "CROSSED"
+    if mt not in {"CROSSED", "ISOLATED"}:
+        raise ValueError(f"margin_type 只支持 CROSSED/ISOLATED, 当前={margin_type}")
+
+    参数 = {'symbol': symbol, 'marginType': mt}
+    try:
+        res = _请求('POST', '/fapi/v1/marginType', 参数, 需要签名=True)
+        logger.info(f"设置保证金模式成功: {symbol} marginType={mt}")
+        return res
+    except Exception as e:
+        msg = str(e)
+        # Binance: code -4046, "No need to change margin type."
+        if "-4046" in msg or "No need to change margin type" in msg:
+            logger.info(f"保证金模式无需修改: {symbol} (已是 {mt})")
+            return {"symbol": symbol, "marginType": mt, "msg": "already_set"}
+        raise
+
+
 def fetch_account_balance(asset_name: str = 'USDT') -> float:
     """
     获取账户余额 (不含未实现盈亏)
