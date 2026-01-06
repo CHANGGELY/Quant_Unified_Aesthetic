@@ -34,12 +34,15 @@ from pathlib import Path
 from typing import Optional, Union, List, Dict, Any
 from datetime import datetime
 import webbrowser
+import json
+import html
 
 # Plotly 导入
 try:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
     from plotly.offline import plot as plotly_save
+    import plotly.io as pio
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
@@ -65,6 +68,7 @@ class 回测可视化:
         价格序列: Optional[Union[np.ndarray, List[float]]] = None,
         显示图表: bool = True,  # 核心开关：单次回测=True，批量遍历=False
         保存路径: Optional[str] = None,
+        报告参数: Optional[Dict[str, Any]] = None,
     ):
         """
         初始化可视化器
@@ -86,6 +90,7 @@ class 回测可视化:
         self.初始资金 = float(初始资金)
         self.显示图表 = 显示图表
         self.保存路径 = Path(保存路径) if 保存路径 else Path.cwd()
+        self.报告参数 = 报告参数 or {}
         
         # 时间序列
         if 时间序列 is not None:
@@ -98,6 +103,60 @@ class 回测可视化:
         
         # 预计算指标
         self._预处理数据()
+
+    @staticmethod
+    def _格式化参数值(value: Any) -> str:
+        """把任意 Python 值格式化为适合展示在 HTML 表格里的字符串（并做转义）。"""
+        if value is None:
+            return "None"
+
+        if isinstance(value, float):
+            # 既要好看，又要可对比：小数保留必要精度，避免科学计数法太难读
+            text = f"{value:.10g}"
+            return html.escape(text)
+
+        if isinstance(value, (int, bool, str)):
+            return html.escape(str(value))
+
+        # Path / numpy / pandas / datetime 等：统一走字符串
+        if isinstance(value, Path):
+            return html.escape(str(value))
+
+        if isinstance(value, (dict, list, tuple)):
+            try:
+                text = json.dumps(value, ensure_ascii=False, indent=2, default=str)
+            except TypeError:
+                text = str(value)
+            return f"<pre class='meta-pre'>{html.escape(text)}</pre>"
+
+        return html.escape(str(value))
+
+    def _渲染报告参数区块(self) -> str:
+        """把 self.报告参数 渲染成页面顶部的参数卡片（可折叠）。"""
+        if not self.报告参数:
+            return ""
+
+        rows: List[str] = []
+        for k, v in self.报告参数.items():
+            key = html.escape(str(k))
+            val = self._格式化参数值(v)
+            rows.append(f"<tr><td class='meta-k'>{key}</td><td class='meta-v'>{val}</td></tr>")
+
+        rows_html = "\n".join(rows)
+        return f"""
+<section class="report-meta">
+  <details open>
+    <summary>⚙️ 回测配置参数</summary>
+    <div class="meta-note">提示：这些参数会随每次回测一起写入本页面，方便你对比不同回测结果。</div>
+    <table class="meta-table">
+      <thead><tr><th>参数</th><th>值</th></tr></thead>
+      <tbody>
+        {rows_html}
+      </tbody>
+    </table>
+  </details>
+</section>
+""".strip()
     
     def _预处理数据(self):
         """预处理数据，计算净值、回撤等"""
@@ -290,8 +349,109 @@ class 回测可视化:
         时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S")
         文件名 = f"回测报告_{策略名称}_{时间戳}.html"
         文件路径 = self.保存路径 / 文件名
-        
-        plotly_save(fig, filename=str(文件路径), auto_open=False)
+
+        # 生成自定义 HTML：在图表上方插入「回测配置参数」
+        参数区块 = self._渲染报告参数区块()
+        图表HTML = pio.to_html(fig, full_html=False, include_plotlyjs=True)
+        页面标题 = html.escape(f"{策略名称} 回测报告")
+
+        页面HTML = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{页面标题}</title>
+  <style>
+    :root {{
+      --bg: #ffffff;
+      --card: #f7f8fa;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: rgba(17, 24, 39, 0.10);
+    }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: PingFang SC, Hiragino Sans GB, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial;
+    }}
+    .page {{
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 12px 16px 24px;
+    }}
+    .report-meta {{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin: 8px 0 14px;
+    }}
+    .report-meta summary {{
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      user-select: none;
+      outline: none;
+    }}
+    .meta-note {{
+      margin: 8px 0 10px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }}
+    .meta-table {{
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+    }}
+    .meta-table th, .meta-table td {{
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      font-size: 12px;
+    }}
+    .meta-table th {{
+      background: rgba(17, 24, 39, 0.04);
+      font-weight: 600;
+      color: #374151;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }}
+    .meta-k {{
+      width: 28%;
+      color: #111827;
+      white-space: nowrap;
+    }}
+    .meta-v {{
+      color: #111827;
+      word-break: break-word;
+    }}
+    .meta-pre {{
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      color: #111827;
+    }}
+  </style>
+</head>
+<body>
+  <div class="page">
+    {参数区块}
+    {图表HTML}
+  </div>
+</body>
+</html>
+"""
+
+        文件路径.write_text(页面HTML, encoding="utf-8")
         
         print(f"📊 图表已保存: {文件路径}")
         

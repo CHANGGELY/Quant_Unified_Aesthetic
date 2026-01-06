@@ -60,6 +60,7 @@ from 策略仓库.八号香农策略.api import binance_raw as api  # 使用原�
 from 策略仓库.八号香农策略.api.ws_manager import BinanceWsManager
 from 策略仓库.八号香农策略.program.volatility import VolatilityEngine
 from 策略仓库.八号香农策略.program.cprp import CPRPEngine
+from 策略仓库.八号香农策略.program.leverage_model import resolve_leverage_spec, available_balance
 
 # ============================================================
 # 用户配置区
@@ -82,6 +83,7 @@ class ShannonProphet:
         self.config = cfg
         self.symbol = self.config.symbol
         self.equity_asset = self._resolve_equity_asset()
+        self.leverage_spec = None
         
         # 核心算子
         self.vol_engine = VolatilityEngine(self.config)
@@ -90,6 +92,7 @@ class ShannonProphet:
         # 状态缓存
         self.current_price = 0.0
         self.equity_cache = 0.0
+        self.available_balance_cache = 0.0
         self.position_cache = 0.0 # 纯数量
         
         # 订单缓存 (Buy, Sell)
@@ -105,6 +108,29 @@ class ShannonProphet:
         """初始化"""
         logger.info(f"[{self.symbol}] 正在启动 8号香农策略...")
         logger.info(f"净值计价币: {self.equity_asset} | 初始本金: {INITIAL_CAPITAL:.2f}")
+
+        # 0. 解析杠杆配置（策略口径：X=持仓名义，Y=空闲余额）
+        self.leverage_spec = resolve_leverage_spec(
+            self.config,
+            target_ratio=float(getattr(self.config, 'target_ratio', 0.5)),
+            max_position_leverage=getattr(self.config, 'max_position_leverage', None),
+        )
+        logger.info(
+            f"杠杆配置 | 名义W={self.leverage_spec.nominal_leverage:.4f} | "
+            f"逐笔Z={self.leverage_spec.position_leverage:.2f}x"
+        )
+
+        # 0.1 （可选）自动设置交易所参数（建议先在测试网开启）
+        if getattr(self.config, 'auto_set_exchange_settings', False):
+            try:
+                z_int = int(round(self.leverage_spec.position_leverage))
+                z_int = max(1, z_int)
+                if abs(z_int - self.leverage_spec.position_leverage) > 1e-9:
+                    logger.warning(f"逐笔杠杆需为整数，已四舍五入: {self.leverage_spec.position_leverage} -> {z_int}")
+                await asyncio.to_thread(api.set_margin_type, self.symbol, "CROSSED")
+                await asyncio.to_thread(api.set_leverage, self.symbol, z_int)
+            except Exception as e:
+                logger.warning(f"自动设置交易所杠杆/保证金模式失败: {e}")
         
         # 1. 获取初始价格
         price = api.fetch_symbol_price(self.symbol)
@@ -162,6 +188,7 @@ class ShannonProphet:
                 
                 # 更新缓存
                 self.equity_cache = mb 
+                self.available_balance_cache = ab
                 self.position_cache = pos_amt
                 
                 # 计算实盘收益率 (ROI) = (当前净值 - 初始本金) / 初始本金
@@ -174,6 +201,17 @@ class ShannonProphet:
                     f"ROI: {roi:.2%} | "
                     f"持仓: {pos_amt:.4f} (@{pos_entry:.1f})"
                 )
+
+                # 杠杆/口径一致性检查（忽略维持保证金/资金费等差异）
+                if self.current_price > 0 and self.leverage_spec:
+                    notional = abs(pos_amt) * float(self.current_price)
+                    ratio = notional / (notional + ab) if (notional + ab) > 1e-12 else 0.0
+                    y_model = available_balance(mb, notional, self.leverage_spec.position_leverage)
+                    logger.info(
+                        f"口径检查 | X(名义)={notional:.2f} | Y(空闲)={ab:.2f} | "
+                        f"X/(X+Y)={ratio:.2%} (target={getattr(self.config,'target_ratio',0.5):.0%}) | "
+                        f"Y_model≈{y_model:.2f}"
+                    )
             else:
                 logger.warning("账户同步: 获取失败")
             
@@ -357,16 +395,23 @@ class ShannonProphet:
         split_orders = False
         
         # 直接执行单笔下单
+        # 读取配置：post_only=False 表示普通限价单（可能以Taker成交）
+        #          post_only=True  表示只做Maker（越过盘口会拒单报错 -5022）
+        post_only = getattr(self.config, 'post_only', False)
         try:
             hedge_mode = getattr(self.config, 'hedge_mode', False)
             if hedge_mode:
                 pos_side = 'LONG' if side == 'BUY' else 'SHORT'
-                await asyncio.to_thread(api.place_limit_order, self.symbol, side, price, quantity, position_side=pos_side, post_only=True)
+                await asyncio.to_thread(api.place_limit_order, self.symbol, side, price, quantity, position_side=pos_side, post_only=post_only)
             else:
-                await asyncio.to_thread(api.place_limit_order, self.symbol, side, price, quantity, post_only=True)
+                await asyncio.to_thread(api.place_limit_order, self.symbol, side, price, quantity, post_only=post_only)
             logger.info(f"挂单成功: {side} {price:.2f} x {quantity:.4f}")
         except Exception as e:
-            logger.error(f"挂单失败: {e}")
+            错误信息 = str(e)
+            if "-5022" in 错误信息:
+                logger.warning(f"挂单被拒 (Post-Only模式): 价格越过盘口，无法作为Maker成交。可在 config_live.py 设置 post_only=False 使用普通限价单。")
+            else:
+                logger.error(f"挂单失败: {e}")
 
     async def execute_orders(self, ideal_buy_list, ideal_sell_list):
         """执行订单更新 (撤销旧单 -> 挂新单) - 支持多层挂单"""

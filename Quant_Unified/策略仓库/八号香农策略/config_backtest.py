@@ -39,12 +39,37 @@ width_multiplier_crush = 0.8  # Crush 模式：网格收缩 0.8x
 
 # 💰 资金配置
 initial_capital = 1000.0    # 初始资金 (USDC)
-leverage = 2.0              # 杠杆倍数 (1.0 = 无杠杆, 2.0 = 2倍杠杆)
-                            # 回测使用「借贷杠杆」建模：
-                            #   总资产 = initial_capital * leverage
-                            #   借款   = initial_capital * (leverage - 1)
-                            #   策略在【总资产】上做 50/50 CPRP；权益 = 总资产 - 借款
-                            #   （未计入借贷利息/资金费）
+
+# ====== 杠杆（合约保证金口径，非借贷）======
+# 口径定义：
+#   X = 持仓名义价值（币仓位价值）
+#   Y = 空闲 USDT/USDC（available balance）
+#   T = 占用保证金（used margin）
+#   Z = 逐笔杠杆（交易所设置 leverage）
+#   目标：始终维持 X 与 Y 的价值比例为 50/50（即 X == Y）
+#
+# 在该口径下（忽略资金费/维持保证金差异）：
+#   T = X / Z
+#   Y = E - T
+#   可解得：X_target = E * Z / (Z + 1) ；名义杠杆 W = (X+Y)/E = 2Z/(Z+1) < 2
+#
+# 参数二选一：
+nominal_leverage = None     # 名义杠杆 W（策略层，范围 [1, 2)；例 W=1.90 -> 需要 Z=19）
+position_leverage = 3.0     # 逐笔杠杆 Z（交易所 leverage，范围 [1, ...]）
+max_position_leverage = 125 # 逐笔杠杆上限（交易所限制；超出会报错）
+
+# 若填写 nominal_leverage，则自动换算出 Z（这里默认 target_ratio 固定 0.5）
+if nominal_leverage is not None:
+    w = float(nominal_leverage)
+    if w < 1.0 or w >= 2.0:
+        raise ValueError(f"nominal_leverage 必须在 [1, 2) 内, 当前={w}")
+    position_leverage = w / (2.0 - w)
+
+if position_leverage > max_position_leverage:
+    raise ValueError(f"position_leverage={position_leverage} 超过 max_position_leverage={max_position_leverage}")
+
+# 兼容旧字段：leverage 作为 position_leverage 的别名
+leverage = float(position_leverage)
 
 # 📅 数据范围
 data_start_date = "2021-01-01"  # 回测起始日期
