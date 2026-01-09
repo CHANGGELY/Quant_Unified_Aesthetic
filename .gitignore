@@ -24,3 +24,4 @@ Quant_Unified/cache/
 .DS_Store
 
 # Git
+.git_backup_*
