@@ -29,6 +29,7 @@ alwaysApply: true
 *   **中文注释**：每个代码文件开头必须包含**中文文件头**，用通俗语言解释“这个文件是干嘛的”。代码内部逻辑必须通过中文注释解释“为什么这么写”。
 
 ## 2. 前端标准 (React & UI)
+*   **默认技术栈**：默认前端方案为 React + Tailwind CSS + shadcn/ui。
 *   **React 编译器优先**：代码必须兼容并开启 **React Compiler**。避免使用过时的 `useMemo`/`useCallback` 手动优化（除非编译器无法处理），让代码更干净。
 *   **Apple 级审美**：默认扮演 Apple 顶级 UI 工程师。界面必须具有极致的审美、流畅的动画（Framer Motion）和高级的交互感,杜绝蓝紫色渐变。。
 *   **TypeScript**：零容忍报错。自动修复所有红线，类型定义必须精准。
@@ -61,3 +62,13 @@ alwaysApply: true
     有任何能开源项目里复用的东西都要优先去用开源项目里复用的东西，不要老是从0~1造重复轮子。
     在简化用户代码前都必须要说明理由，不能私自偷摸简化。
     铭记始终用中文创建plan和task。
+## Python 项目上传 GitHub 的 CI 规则
+
+- 上传前先检查项目根目录是否存在 `.github/workflows/` 及其中的 `.yml/.yaml` 文件。
+- 若不存在 CI 配置文件，则生成 `.github/workflows/python-ci.yaml`，要求如下：
+  - Python 版本：使用本地实际运行的版本（以本机/虚拟环境 `python --version` 为准，固定到小版本）。
+  - 依赖安装：基于本地依赖文件路径（如 `requirements.txt`、`requirements-dev.txt`、`pyproject.toml`、`Pipfile` 等）选择并安装。
+  - 测试与规范：若项目使用 pytest/flake8（依赖或配置文件存在），在 CI 中启用对应步骤。
+  - 环境一致性：尽量与本地保持一致的版本、路径、依赖与必要配置（如工作目录、环境变量、配置文件）。
+  - 文件路径：CI 配置固定保存为 `.github/workflows/python-ci.yaml`。
+- 同步提交用于 CI 的本地文件（依赖清单、pytest/flake8 配置等），避免 CI 运行时缺失依赖或配置。
