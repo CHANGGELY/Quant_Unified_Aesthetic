@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: quant-unified-common-core
+Version: 0.1.0
+Summary: Quant Unified 通用核心库：交易所客户端、回测、风控与工具集
+Author: Quant Unified Team
+License: Proprietary
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: ccxt>=4.3.0
+Requires-Dist: pandas>=2.2.0
+Requires-Dist: numpy>=1.26.0
+Requires-Dist: aiohttp>=3.9.0
+Requires-Dist: numba>=0.59.0
+Requires-Dist: plotly>=5.18.0
+Requires-Dist: scipy>=1.10.0
