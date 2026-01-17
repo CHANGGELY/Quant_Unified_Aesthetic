@@ -8,8 +8,9 @@ import os
 import asyncio
 import logging
 import sys
+import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 
 import argparse
@@ -117,14 +118,15 @@ class TradeMatcher:
         self.total_cost = 0.0
         self.total_qty = 0.0
         
-    def add_buy(self, price, qty):
+    def add_buy(self, price, qty, *, quiet: bool = False):
         """记录买单"""
         self.buy_queue.append({'price': price, 'qty': qty})
         self.total_qty += qty
         self.total_cost += price * qty
-        logger.info(f"➕ 记账: 买入 {qty:.4f} @ {price:.2f} (库存: {self.total_qty:.4f})")
+        if not quiet:
+            logger.info(f"➕ 记账: 买入 {qty:.4f} @ {price:.2f} (库存: {self.total_qty:.4f})")
         
-    def process_sell(self, sell_price, sell_qty):
+    def process_sell(self, sell_price, sell_qty, *, quiet: bool = False):
         """处理卖单，计算精准利润 (FIFO)"""
         remaining_sell_qty = sell_qty
         total_profit = 0.0
@@ -153,9 +155,11 @@ class TradeMatcher:
         # 2. 如果队列空了还有剩余卖出的量 (说明是底仓或以前的库存)
         # 使用当前持仓均价估算剩余部分
         if remaining_sell_qty > 0:
-            logger.warning(f"⚠️ 库存不足全额匹配 (缺 {remaining_sell_qty:.4f})，剩余部分无法精准计算")
+            if not quiet:
+                logger.warning(f"⚠️ 库存不足全额匹配 (缺 {remaining_sell_qty:.4f})，剩余部分无法精准计算")
             
-        logger.info(f"➖ 记账: 卖出 {sell_qty:.4f} @ {sell_price:.2f} | 匹配成本: {matched_cost:.2f} | 利润: {total_profit:.4f}")
+        if not quiet:
+            logger.info(f"➖ 记账: 卖出 {sell_qty:.4f} @ {sell_price:.2f} | 匹配成本: {matched_cost:.2f} | 利润: {total_profit:.4f}")
         return total_profit
 
 
@@ -200,6 +204,15 @@ class ShannonProphet:
         
         # 控制锁
         self._lock = asyncio.Lock()
+
+        # ============================================================
+        # 1m K线收盘驱动（WebSocket）
+        # ============================================================
+        # 你可以把它理解成“收盘铃声”：
+        # - 每一分钟结束，交易所会推送一条“这根 1m K 线已收盘”的消息
+        # - 我们用它来喂波动率引擎，并且触发下一分钟的挂单计算
+        self._kline_close_queue: asyncio.Queue[tuple[int, float]] = asyncio.Queue(maxsize=10)
+        self._last_kline_close_time_ms: int = 0
         
         # Supabase 客户端
         self.supabase: Client = None
@@ -210,6 +223,14 @@ class ShannonProphet:
         
         # 初始化交易匹配器 (精准盈亏计算)
         self.trade_matcher = TradeMatcher()
+
+        # ============================================================
+        # 成交账本（持久化到本地文件）
+        # ============================================================
+        # 目的：脚本重启后也能“从真实成交历史”重建 FIFO 队列，保证利润提示不丢失。
+        self._ledger_path: Path = Path(__file__).resolve().parent / f"成交账本_{self.symbol}.jsonl"
+        self._ledger_last_trade_id: int = 0
+        self._ledger_lock = asyncio.Lock()
 
     def _init_supabase(self):
         """初始化 Supabase 客户端"""
@@ -253,6 +274,262 @@ class ShannonProphet:
         except Exception as e:
             logger.warning(f"数据上报 Supabase 失败: {e}")
 
+    # ============================================================
+    # 成交账本 & FIFO 重建
+    # ============================================================
+
+    def _读取成交账本最后trade_id(self) -> int:
+        """
+        读取本地成交账本最后一个 trade id（用于“增量补齐”）。
+
+        trade id 可以理解成“流水号”：越大越新。
+        """
+        路径 = self._ledger_path
+        if not 路径.exists():
+            return 0
+
+        last_id = 0
+        try:
+            with 路径.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = (line or "").strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        tid = int(obj.get("id", 0))
+                        if tid > last_id:
+                            last_id = tid
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.warning(f"读取成交账本失败: {e}")
+            return 0
+        return last_id
+
+    async def _追加成交到账本(self, trade: dict):
+        """把单笔成交追加到本地账本（JSONL：一行一个 JSON）。"""
+        if not isinstance(trade, dict):
+            return
+        tid = int(trade.get("id", 0) or 0)
+        if tid <= 0:
+            return
+
+        line = json.dumps(trade, ensure_ascii=False)
+        路径 = self._ledger_path
+        try:
+            async with self._ledger_lock:
+                if tid <= self._ledger_last_trade_id:
+                    return
+                路径.parent.mkdir(parents=True, exist_ok=True)
+
+                def _写一行():
+                    with 路径.open("a", encoding="utf-8") as f:
+                        f.write(line + "\n")
+
+                await asyncio.to_thread(_写一行)
+                self._ledger_last_trade_id = tid
+        except Exception as e:
+            logger.warning(f"写入成交账本失败: {e}")
+
+    async def _首次回溯成交账本(self):
+        """
+        第一次运行且当前有持仓时：尽量回溯足够久的历史成交，避免 FIFO “缺底仓”。
+        """
+        target_qty = abs(float(self.position_cache))
+        if target_qty <= 1e-12:
+            return
+
+        logger.info(f"📒 成交账本初始化: 检测到持仓 {self.position_cache:.4f}，开始回溯历史成交...")
+
+        lookback_days_list = [7, 30, 90, 365, 2000]
+
+        for days in lookback_days_list:
+            start_ms = int((datetime.now() - timedelta(days=int(days))).timestamp() * 1000)
+
+            all_trades: list[dict] = []
+            from_id: int | None = None
+
+            for _ in range(200):  # 安全上限：最多翻 200 页
+                if from_id is None:
+                    page = await asyncio.to_thread(api.fetch_user_trades, self.symbol, start_time_ms=start_ms, limit=1000)
+                else:
+                    page = await asyncio.to_thread(api.fetch_user_trades, self.symbol, from_id=from_id, start_time_ms=start_ms, limit=1000)
+
+                if not page:
+                    break
+
+                all_trades.extend(page)
+                if len(page) < 1000:
+                    break
+                from_id = int(page[-1].get("id", 0) or 0) + 1
+
+            if not all_trades:
+                continue
+
+            all_trades.sort(key=lambda x: int(x.get("id", 0) or 0))
+
+            # 用“净买入数量”判断这段历史是否足够覆盖当前持仓（粗但实用）
+            net_qty = 0.0
+            for t in all_trades:
+                if str(t.get("positionSide", "BOTH")).upper() == "SHORT":
+                    continue
+                side = str(t.get("side", "")).upper()
+                qty = float(t.get("qty", 0) or 0)
+                if qty <= 0:
+                    continue
+                if side == "BUY":
+                    net_qty += qty
+                elif side == "SELL":
+                    net_qty -= qty
+
+            logger.info(f"📒 回溯{days}天成交: trades={len(all_trades)} | net_qty≈{net_qty:.4f} | pos≈{target_qty:.4f}")
+
+            # 写入/覆盖账本（首次回溯，用“覆盖写”更干净）
+            路径 = self._ledger_path
+            路径.parent.mkdir(parents=True, exist_ok=True)
+
+            def _覆盖写入():
+                with 路径.open("w", encoding="utf-8") as f:
+                    for t in all_trades:
+                        f.write(json.dumps(t, ensure_ascii=False) + "\n")
+
+            await asyncio.to_thread(_覆盖写入)
+
+            self._ledger_last_trade_id = int(all_trades[-1].get("id", 0) or 0)
+
+            # 如果 net_qty 已经能覆盖当前持仓，通常就够用；否则继续往更久回溯
+            if net_qty >= target_qty * 0.98:
+                logger.info(f"✅ 成交账本回溯完成：最近 {days} 天已覆盖当前持仓")
+                return
+
+        logger.warning("⚠️ 成交账本回溯可能仍不完整：FIFO 利润提示可能会偏差（不影响实际交易）")
+
+    async def _补齐成交账本并重建FIFO(self):
+        """
+        启动时执行：
+        1) 从交易所拉取缺失成交（增量补齐本地账本）
+        2) 用账本重建 FIFO 队列（TradeMatcher），避免重启后利润提示“失忆”
+        """
+        # 1) 先读本地账本最后 id
+        self._ledger_last_trade_id = self._读取成交账本最后trade_id()
+
+        # 2) 如果账本不存在且当前无持仓：不必回溯历史（从现在开始记就行）
+        if self._ledger_last_trade_id == 0 and abs(float(self.position_cache)) <= 1e-12:
+            try:
+                self._ledger_path.parent.mkdir(parents=True, exist_ok=True)
+                self._ledger_path.touch(exist_ok=True)
+            except Exception:
+                pass
+            logger.info("📒 成交账本初始化: 当前无持仓，跳过历史回溯")
+            self.trade_matcher = TradeMatcher()
+            return
+
+        # 2.1 第一次运行且当前有持仓：先尽量回溯，避免 FIFO 缺底仓
+        if self._ledger_last_trade_id == 0 and abs(float(self.position_cache)) > 1e-12:
+            await self._首次回溯成交账本()
+
+        # 3) 增量补齐：从 last_id+1 开始拉
+        async def _批量追加(trades: list[dict]):
+            if not trades:
+                return
+            路径 = self._ledger_path
+            lines = [json.dumps(t, ensure_ascii=False) + "\n" for t in trades]
+            def _追加多行():
+                with 路径.open("a", encoding="utf-8") as f:
+                    f.writelines(lines)
+            await asyncio.to_thread(_追加多行)
+
+        try:
+            from_id = self._ledger_last_trade_id + 1 if self._ledger_last_trade_id > 0 else None
+            拉取次数 = 0
+            while True:
+                拉取次数 += 1
+                if 拉取次数 > 50:
+                    logger.warning("⚠️ 补齐成交账本分页过多，已中止（请检查是否存在异常交易量）")
+                    break
+
+                if from_id is None:
+                    break
+
+                trades = await asyncio.to_thread(api.fetch_user_trades, self.symbol, from_id=from_id, limit=1000)
+
+                if not trades:
+                    break
+
+                # 过滤掉重复（保险）
+                trades = [t for t in trades if int(t.get("id", 0) or 0) > self._ledger_last_trade_id]
+                if not trades:
+                    break
+
+                await _批量追加(trades)
+                self._ledger_last_trade_id = int(trades[-1]["id"])
+                from_id = self._ledger_last_trade_id + 1
+
+            # 4) 用账本重建 FIFO
+            self._从账本重建FIFO()
+        except Exception as e:
+            logger.warning(f"补齐成交账本失败: {e}")
+            # 即使失败，也不影响策略运行；只是利润提示可能不准
+
+    def _从账本重建FIFO(self):
+        """用本地成交账本重建 FIFO（静默模式，避免启动时刷屏）。"""
+        路径 = self._ledger_path
+        if not 路径.exists():
+            logger.warning("⚠️ 未找到成交账本文件，无法重建 FIFO")
+            return
+
+        matcher = TradeMatcher()
+        buy_sum = 0.0
+        sell_sum = 0.0
+        count = 0
+
+        try:
+            with 路径.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = (line or "").strip()
+                    if not line:
+                        continue
+                    try:
+                        t = json.loads(line)
+                    except Exception:
+                        continue
+
+                    if t.get("symbol") != self.symbol:
+                        continue
+
+                    # hedge 模式下可能会有 SHORT，这里默认只用 LONG/BOTH 来做 FIFO（你当前配置是单向）
+                    if str(t.get("positionSide", "BOTH")).upper() == "SHORT":
+                        continue
+
+                    side = str(t.get("side", "")).upper()
+                    price = float(t.get("price", 0) or 0)
+                    qty = float(t.get("qty", 0) or 0)
+                    if price <= 0 or qty <= 0:
+                        continue
+
+                    if side == "BUY":
+                        matcher.add_buy(price, qty, quiet=True)
+                        buy_sum += qty
+                        count += 1
+                    elif side == "SELL":
+                        matcher.process_sell(price, qty, quiet=True)
+                        sell_sum += qty
+                        count += 1
+        except Exception as e:
+            logger.warning(f"重建 FIFO 失败: {e}")
+            return
+
+        self.trade_matcher = matcher
+        logger.info(
+            f"✅ FIFO 重建完成 | trades={count} | buy={buy_sum:.4f} | sell={sell_sum:.4f} | "
+            f"FIFO库存≈{matcher.total_qty:.4f} | 当前持仓≈{self.position_cache:.4f}"
+        )
+
+        # 如果偏差很大，给出提示（不影响运行）
+        if abs(abs(float(self.position_cache)) - matcher.total_qty) > max(1e-6, abs(float(self.position_cache)) * 0.05):
+            logger.warning("⚠️ FIFO库存 与 当前持仓差异较大：可能账本不完整（建议首次运行时让脚本跑一段时间自动补齐）")
+
         
     async def initialize(self):
         """初始化"""
@@ -294,6 +571,9 @@ class ShannonProphet:
         
         # 2. 同步账户状态
         await self._sync_account()
+
+        # 3. 用“真实成交历史”补齐账本，并重建 FIFO（脚本重启不失忆）
+        await self._补齐成交账本并重建FIFO()
         
     async def _preload_volatility(self):
         """预加载 K 线数据以初始化波动率"""
@@ -305,9 +585,18 @@ class ShannonProphet:
             
             df = api.fetch_candle_data(self.symbol, now, interval='1m', limit=需要条数)
             if df is not None and not df.empty:
-                prices = df['close'].values
+                # 保险：最后一根可能是“正在走的 K 线”，不一定收盘，先丢掉
+                df_closed = df.iloc[:-1].copy() if len(df) > 1 else df
+                prices = df_closed['close'].values
                 for p in prices:
                     self.vol_engine.add_price(p)
+
+                # 记录最后一根“已收盘 K 线”的 close_time，避免 WS 重复推同一根导致重复喂数据
+                try:
+                    self._last_kline_close_time_ms = int(df_closed['close_time'].iloc[-1])
+                except Exception:
+                    pass
+
                 logger.info(f"已预加载 {len(prices)} 条 K 线数据。当前状态: {self.vol_engine.get_market_status()}")
         except Exception as e:
             logger.warning(f"预加载波动率数据失败: {e}")
@@ -413,100 +702,140 @@ class ShannonProphet:
             # 为了自适应，我们在主循环做定时采样。这里只更新缓存。
             pass
 
+    async def 推送_1m收盘K线(self, close_price: float, close_time_ms: int):
+        """
+        WebSocket 收到 1 分钟 K 线“收盘”事件时调用。
+
+        close_time_ms：毫秒时间戳（交易所给的时间，最权威）
+        """
+        if close_price <= 0:
+            return
+        if close_time_ms <= 0:
+            return
+        if close_time_ms <= self._last_kline_close_time_ms:
+            return
+
+        self._last_kline_close_time_ms = close_time_ms
+
+        # 队列满了就丢掉最旧的一根（策略只关心最新的收盘）
+        if self._kline_close_queue.full():
+            try:
+                self._kline_close_queue.get_nowait()
+            except Exception:
+                pass
+
+        await self._kline_close_queue.put((close_time_ms, float(close_price)))
+
     async def logic_loop(self):
         """
-        主逻辑循环 (每分钟执行一次决策)
+        主逻辑循环（由 1m K线收盘事件驱动）
+
+        解释一下为什么不用 `sleep(60)`：
+        - `sleep(60)` 像是“闹钟”，时间会漂移（网络卡一下就错过节拍）
+        - K线收盘推送像是“学校下课铃”，每分钟准时响一次，更贴近真实行情节奏
         """
+        async def _rest补一根已收盘K线() -> tuple[int, float]:
+            """
+            兜底：如果 WS 卡住了，用 REST 拉最近 2 根 1m K 线，取倒数第 2 根（已收盘）。
+
+            这样做的原因（人话）：
+            - WS 像“电话”，极少数时候会断线/静音
+            - REST 像“短信”，虽然慢一点，但可以当备用
+            """
+            try:
+                now = datetime.now()
+                df = await asyncio.to_thread(api.fetch_candle_data, self.symbol, now, interval="1m", limit=2)
+                if df is None or df.empty or len(df) < 2:
+                    return 0, 0.0
+                row = df.iloc[-2]
+                close_price = float(row["close"])
+                close_time_ms = int(row["close_time"])
+                if close_time_ms <= self._last_kline_close_time_ms:
+                    return 0, 0.0
+                return close_time_ms, close_price
+            except Exception as e:
+                logger.warning(f"REST 补 K 线失败: {e}")
+                return 0, 0.0
+
         while True:
             try:
-                # 1. 通过 REST API 获取最新价格 (Weight 1, 每分钟一次)
-                # 已移除行情 WS 订阅，改用 REST API 省流量
+                # 1) 等待下一根“1m K线收盘”
                 try:
-                    self.current_price = await asyncio.to_thread(api.fetch_symbol_price, self.symbol)
-                except Exception as e:
-                    logger.warning(f"获取价格失败: {e}")
-                
-                # 2. 采样价格并更新波动率
-                if self.current_price > 0:
-                     self.vol_engine.add_price(self.current_price, time.time())
-                
-                # 2. 获取市场状态 & 网格宽度
+                    close_time_ms, close_price = await asyncio.wait_for(self._kline_close_queue.get(), timeout=90)
+                except asyncio.TimeoutError:
+                    logger.warning("⚠️ 90秒未收到 1m K线收盘推送，尝试用 REST 补一根...")
+                    close_time_ms, close_price = await _rest补一根已收盘K线()
+                    if close_price <= 0:
+                        continue
+
+                self.current_price = close_price
+
+                # 2) 用“收盘价”喂波动率引擎（这是你想要的对齐口径）
+                self.vol_engine.add_price(close_price, close_time_ms / 1000.0)
+
+                # 3) 获取市场状态 & 网格宽度
                 status = self.vol_engine.get_market_status()
-                current_width_pct = status['final_width']
-                regime = status['regime']
-                
-                # 3. 同步最新账户状态 (权益可能变化)
+                current_width_pct = status["final_width"]
+                regime = status["regime"]
+
+                # 4) 同步最新账户状态（权益可能变化）
                 await self._sync_account()
 
-                # 3.1 上报数据到 Supabase (每分钟)
+                # 4.1 上报数据到 Supabase（每分钟）
                 await self._log_to_supabase(regime, current_width_pct)
-                
-                # 4. 计算理想挂单
-                # 使用中心价 (P_center) 而非实时 P_market 以减少噪音跟踪
+
+                # 5) 计算理想挂单（用中心价减少噪音）
                 center_price = self._get_center_price()
-                
                 buy_order, sell_order = self.cprp_engine.calculate_rebalance(
                     center_price,
                     self.position_cache,
                     self.equity_cache,
-                    current_width_pct
+                    current_width_pct,
                 )
-                
-                # 5. 迟滞更新判断 (Hysteresis)
-                # 规则: 
-                # (A) 宽度变化 > 20%
-                # (B) Regime 突变 (尤其是 Spike)
-                # (C) 价格大幅偏离导致订单远离盘口 (Implicitly covered by recalculation?)
-                # 我们的策略是：一直挂单。如果新计算的价格/数量和当前挂单差距不大，就不动。
-                
+
+                # 6) 迟滞更新判断（避免频繁撤单）
                 should_update = False
-                
-                # ====== 新增：仓位变化检测 (最重要！成交后立即补单) ======
-                if hasattr(self, 'last_position') and self.position_cache != self.last_position:
+
+                # 6.1 成交后立刻补单（用“仓位变化”判断）
+                if hasattr(self, "last_position") and self.position_cache != self.last_position:
                     logger.info(f"触发更新: 仓位变化 {self.last_position:.4f} -> {self.position_cache:.4f} (有成交!)")
                     should_update = True
                 self.last_position = self.position_cache
-                
-                # 检查宽度变化
+
+                # 6.2 网格宽度变化过大
                 width_diff_ratio = 0.0
                 if self.last_grid_width > 0:
                     width_diff_ratio = abs(current_width_pct - self.last_grid_width) / self.last_grid_width
-                
-                update_thresh = getattr(self.config, 'update_threshold_ratio', 0.2)
-                
+
+                update_thresh = getattr(self.config, "update_threshold_ratio", 0.2)
                 if not should_update and width_diff_ratio > update_thresh:
                     logger.info(f"触发更新: 网格宽度变化 {width_diff_ratio:.2%} > {update_thresh:.2%}")
                     should_update = True
-                elif not should_update and regime == 'SPIKE' and self.last_grid_width != current_width_pct:
-                    # SPIKE 状态下稍微变动就立即更新 (防穿仓)
+                elif not should_update and regime == "SPIKE" and self.last_grid_width != current_width_pct:
                     logger.info("触发更新: SPIKE 状态积极风控")
                     should_update = True
-                elif not should_update and not self.active_orders['BUY'] and buy_order:
-                    # 缺单补单
+                elif not should_update and not self.active_orders["BUY"] and buy_order:
                     logger.info("触发更新: 缺少买单")
                     should_update = True
-                elif not should_update and not self.active_orders['SELL'] and sell_order:
+                elif not should_update and not self.active_orders["SELL"] and sell_order:
                     logger.info("触发更新: 缺少卖单")
                     should_update = True
-                
-                # ====== 新增：价格偏离检测 ======
-                # 如果当前挂单价格与理想价格偏差过大，强制更新
+
+                # 6.3 价格偏离检测（用交易所当前挂单 vs 理想挂单对比）
                 if not should_update:
                     try:
                         current_orders = await asyncio.to_thread(api.fetch_open_orders, self.symbol)
-                        # buy_order / sell_order 现在是列表，取第一层做偏离对比
-                        ideal_buy_price = buy_order[0]['price'] if buy_order else None
-                        ideal_sell_price = sell_order[0]['price'] if sell_order else None
-                        
+                        ideal_buy_price = buy_order[0]["price"] if buy_order else None
+                        ideal_sell_price = sell_order[0]["price"] if sell_order else None
                         for order in current_orders:
-                            order_price = order['price']
-                            if order['side'] == 'BUY' and ideal_buy_price:
+                            order_price = order["price"]
+                            if order["side"] == "BUY" and ideal_buy_price:
                                 deviation = abs(order_price - ideal_buy_price) / ideal_buy_price
-                                if deviation > 0.5:  # 偏差超过 50% 就强制更新
+                                if deviation > 0.5:
                                     logger.info(f"触发更新: 买单价格偏离过大 {deviation:.2%}")
                                     should_update = True
                                     break
-                            elif order['side'] == 'SELL' and ideal_sell_price:
+                            elif order["side"] == "SELL" and ideal_sell_price:
                                 deviation = abs(order_price - ideal_sell_price) / ideal_sell_price
                                 if deviation > 0.5:
                                     logger.info(f"触发更新: 卖单价格偏离过大 {deviation:.2%}")
@@ -514,7 +843,7 @@ class ShannonProphet:
                                     break
                     except Exception as e:
                         logger.warning(f"价格偏离检测失败: {e}")
-                
+
                 if should_update:
                     await self.execute_orders(buy_order, sell_order)
                     self.last_grid_width = current_width_pct
@@ -523,10 +852,6 @@ class ShannonProphet:
 
             except Exception as e:
                 logger.error(f"逻辑循环异常: {e}")
-            
-            # 等待 1 分钟 (标准香农策略不需要高频，利用分钟级波动)
-            # 也可以改为 10s，视用户偏好。Prompt 中提到 "每分钟计算一次"。
-            await asyncio.sleep(60)
 
     def _get_center_price(self):
         """
@@ -609,7 +934,9 @@ async def main():
     await trader.initialize()
     
     # 启动 WebSocket 管理器
-    ws_manager = BinanceWsManager(symbols=[trader.symbol])
+    # - 用户数据流：订单/成交推送（ORDER_TRADE_UPDATE）
+    # - 行情流：1m K线收盘推送（kline_1m），用来驱动波动率与决策
+    ws_manager = BinanceWsManager(symbols=[trader.symbol], market_stream_kind="kline_1m")
     
     # 定义 WS 回调处理函数
     async def handle_ws_message(msg):
@@ -623,6 +950,19 @@ async def main():
             # 跳过非行情消息 (Account Update 仍跳过，但 ORDER_TRADE_UPDATE 要处理)
             event_type = msg.get('e', '')
             
+            if event_type == 'kline':
+                # 1m K线更新（只在“收盘”时触发策略）
+                k = msg.get('k', {}) or {}
+                is_closed = bool(k.get('x', False))
+                if is_closed:
+                    try:
+                        close_price = float(k.get('c', 0))
+                        close_time_ms = int(k.get('T', 0))
+                    except (ValueError, TypeError):
+                        return
+                    await trader.推送_1m收盘K线(close_price, close_time_ms)
+                return
+
             if event_type == 'ORDER_TRADE_UPDATE':
                 # 处理订单成交回报
                 order_data = msg.get('o', {})
@@ -632,6 +972,34 @@ async def main():
                     price = float(order_data.get('L', 0))
                     qty = float(order_data.get('l', 0))
                     realized_profit = float(order_data.get('rp', 0)) # 只有平仓才有 realized profit
+
+                    # 1) 把“真实成交”写入本地账本（脚本重启也不丢）
+                    try:
+                        trade_id = int(order_data.get("t", 0) or 0)
+                        trade_time_ms = int(order_data.get("T", 0) or 0)
+                        order_id = int(order_data.get("i", 0) or 0)
+                        position_side = str(order_data.get("ps", "BOTH") or "BOTH")
+                        commission = float(order_data.get("n", 0) or 0)
+                        commission_asset = str(order_data.get("N", "") or "")
+                        is_maker = bool(order_data.get("m", False))
+                        await trader._追加成交到账本(
+                            {
+                                "id": trade_id,
+                                "time": trade_time_ms,
+                                "orderId": order_id,
+                                "symbol": symbol,
+                                "side": side,
+                                "positionSide": position_side,
+                                "price": price,
+                                "qty": qty,
+                                "realizedPnl": float(order_data.get("rp", 0) or 0),
+                                "commission": commission,
+                                "commissionAsset": commission_asset,
+                                "maker": is_maker,
+                            }
+                        )
+                    except Exception as e:
+                        logger.debug(f"写入成交账本失败(可忽略): {e}")
                     
                     # [精准] 本地 FIFO 盈亏计算
                     # 优先记录买单，卖出时进行队列匹配
@@ -658,25 +1026,6 @@ async def main():
             if event_type in ['ACCOUNT_UPDATE', 'listenKeyExpired']:
                 # 这些是用户数据推送，不是行情，跳过
                 return
-            
-            # 兼容 ticker 和 bookTicker
-            price = 0.0
-            if 'b' in msg and 'a' in msg: # bookTicker
-                try:
-                    bid = float(msg['b'])
-                    ask = float(msg['a'])
-                    if bid > 0 and ask > 0:
-                        price = (bid + ask) / 2
-                except (ValueError, TypeError):
-                    return  # 无法解析，跳过
-            elif 'c' in msg: # miniTicker / ticker
-                try:
-                    price = float(msg['c'])
-                except (ValueError, TypeError):
-                    return
-            
-            if price > 0:
-                await trader.on_price_update(price)
         except Exception as e:
             logger.error(f"WS 消息处理异常: {e}")
 

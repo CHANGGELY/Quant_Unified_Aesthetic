@@ -1,3 +1,18 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+ws_manager.py - WebSocket（长连接）管理器
+
+这个文件是干嘛的？
+    WebSocket 可以理解成“电话一直不挂断”：
+    - 交易所会不停把最新事件推给你（例如：订单成交、1分钟K线收盘）
+    - 你不用每分钟去 REST API 轮询“现在啥情况”，更省请求、更实时
+
+本文件负责：
+    1) 同时维护“用户数据流”（订单/成交推送）与“行情数据流”（例如 kline_1m）
+    2) 断线自动重连
+    3) 把收到的消息交给回调函数处理（回调在 real_trading.py 里定义）
+"""
 import asyncio
 import aiohttp
 import json
@@ -10,9 +25,18 @@ from 策略仓库.八号香农策略.api import binance_raw as api  # 使用原�
 logger = logging.getLogger(__name__)
 
 class BinanceWsManager:
-    def __init__(self, symbols=None):
+    """
+    BinanceWsManager - WebSocket 管理器（用户数据 + 行情数据）
+
+    你可以把 WebSocket 理解成“电话一直不挂断”：
+    - REST API：你每分钟打一次电话问“现在啥情况？”（有请求次数/权重成本）
+    - WebSocket：交易所主动在电话里不停告诉你“刚发生了啥”（更实时、更省请求）
+    """
+
+    def __init__(self, symbols=None, *, market_stream_kind: str = "kline_1m"):
         self.listen_key = None
         self.use_testnet = getattr(api, 'USE_TESTNET', False)
+        self.market_stream_kind = str(market_stream_kind or "kline_1m").strip()
         
         # 区分实盘和测试网地址
         if self.use_testnet:
@@ -92,10 +116,13 @@ class BinanceWsManager:
         connector = aiohttp.TCPConnector(ssl=self.ssl_context if self.ssl_context else None)
         async with aiohttp.ClientSession(connector=connector) as session:
             self.session = session
-            # 只启动用户数据 WS (订单通知)
-            # 行情数据改用 REST API 每分钟获取 (省流量)
-            user_task = asyncio.create_task(self._run_user_ws())
-            await user_task
+            # 同时启动：
+            # 1) 用户数据 WS：订单/成交推送（ORDER_TRADE_UPDATE）
+            # 2) 行情 WS：1m K线收盘推送（用于波动率引擎）
+            tasks = [asyncio.create_task(self._run_user_ws())]
+            if self.symbols:
+                tasks.append(asyncio.create_task(self._run_market_ws()))
+            await asyncio.gather(*tasks)
 
     async def stop(self):
         self.running = False
@@ -158,7 +185,13 @@ class BinanceWsManager:
                 streams = []
                 for symbol in self.symbols:
                     clean_symbol = symbol.replace('/', '').lower()
-                    streams.append(f"{clean_symbol}@ticker")
+                    if self.market_stream_kind == "kline_1m":
+                        streams.append(f"{clean_symbol}@kline_1m")
+                    elif self.market_stream_kind == "bookTicker":
+                        streams.append(f"{clean_symbol}@bookTicker")
+                    else:
+                        # 兼容旧默认：ticker（不建议再用它来驱动波动率）
+                        streams.append(f"{clean_symbol}@ticker")
                 if not streams:
                     await asyncio.sleep(5)
                     continue

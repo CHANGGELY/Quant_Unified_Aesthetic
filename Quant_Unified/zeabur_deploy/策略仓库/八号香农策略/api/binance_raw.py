@@ -559,6 +559,58 @@ def fetch_position(symbol: str) -> dict:
 
 
 # ============================================================
+# 成交/交易明细 (私有)
+# ============================================================
+
+def fetch_user_trades(
+    symbol: str,
+    *,
+    from_id: int | None = None,
+    start_time_ms: int | None = None,
+    end_time_ms: int | None = None,
+    limit: int = 1000,
+) -> list[dict]:
+    """
+    获取用户成交明细（真实成交记录，带 trade id）
+
+    文档：GET /fapi/v1/userTrades
+    - 这是“账本”（像银行流水），用于脚本重启后重建 FIFO 等状态
+    - 需要签名（私有接口）
+    """
+    if not symbol:
+        raise ValueError("symbol 不能为空")
+
+    参数: dict = {"symbol": symbol, "limit": int(limit)}
+    if from_id is not None:
+        参数["fromId"] = int(from_id)
+    if start_time_ms is not None:
+        参数["startTime"] = int(start_time_ms)
+    if end_time_ms is not None:
+        参数["endTime"] = int(end_time_ms)
+
+    数据 = _请求("GET", "/fapi/v1/userTrades", 参数, 需要签名=True)
+    结果: list[dict] = []
+    for t in 数据:
+        结果.append(
+            {
+                "id": int(t.get("id", 0)),
+                "orderId": int(t.get("orderId", 0)),
+                "symbol": t.get("symbol", symbol),
+                "side": t.get("side", ""),
+                "positionSide": t.get("positionSide", "BOTH"),
+                "price": float(t.get("price", 0)),
+                "qty": float(t.get("qty", 0)),
+                "realizedPnl": float(t.get("realizedPnl", 0)),
+                "commission": float(t.get("commission", 0)),
+                "commissionAsset": t.get("commissionAsset", ""),
+                "time": int(t.get("time", 0)),
+                "maker": bool(t.get("maker", False)),
+            }
+        )
+    return 结果
+
+
+# ============================================================
 # 订单接口 (私有)
 # ============================================================
 

@@ -71,6 +71,8 @@ strategy_config = Config(
     min_grid_width_bps=1.0,     # 最小网格宽度 (基点, 1bp=0.01%) - 5bps = 0.05%
                                 # 假设 ETH=2000, 0.05% = 1U，大于 Spread
     grid_layers=3,              # 网格层数 (多层阶梯挂单) - 建议 3-5 层以捕捉插针
+    force_order_band=0.1,       # 强制双边挂单缓冲带（避免只挂一边导致“断流动性”）
+    min_qty=0.007,              # 最小下单数量（ETH，CPRP 算子里会用；与交易对精度/最小名义也要匹配）
     hedge_mode=False,           # 持仓模式: False=单向持仓, True=双向持仓 (需要账户设置匹配)
     post_only=False,            # 只做Maker模式: False=普通限价单(可能以Taker成交), True=只做Maker(越过盘口会拒单)
     
