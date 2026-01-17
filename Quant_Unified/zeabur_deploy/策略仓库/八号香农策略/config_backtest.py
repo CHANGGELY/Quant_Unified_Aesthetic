@@ -17,7 +17,7 @@
 
 # 📊 波动率引擎参数
 vol_short_window = 60       # 短期波动率窗口 (分钟) - 推荐 30-240
-vol_long_window = 2880      # 长期波动率窗口 (分钟) - 推荐 720-2880
+vol_long_window = 1440      # 长期波动率窗口 (分钟) - 与实盘对齐（24小时）
 vol_ewma_alpha = 0.05       # EWMA 平滑系数
 
 # 🎯 核心策略参数
@@ -28,6 +28,17 @@ target_ratio = 0.5          # 目标持仓比例 (固定 0.5 = 50% ETH + 50% 现
 vol_k_factor = 1.0          # 波动率K系数 (网格宽度 = EWMA_Vol * K)
                             # 💡 越大 = 网格越宽，交易越少
                             # 推荐: 0.8-1.5
+
+# 物理下限（Hard Constraints）
+min_grid_width_bps = 1.0    # 最小网格宽度 (基点, 1bp=0.01%)
+
+# CPRP 挂单结构（与实盘对齐）
+grid_layers = 3             # 网格层数（买/卖各 N 层）
+force_order_band = 0.1      # 强制双边挂单缓冲带（防止只挂一边导致“断流动性”）
+min_qty = 0.007             # 最小下单数量（ETH）
+
+# 订单更新迟滞（Hysteresis：为了避免频繁撤单重挂）
+update_threshold_ratio = 0.05  # 网格宽度变化超过 5% 才更新
 
 # 📈 状态切换阈值
 regime_spike_threshold = 1.5  # 波动率比率 > 1.5 进入 Spike 模式
@@ -81,29 +92,5 @@ verbose_regime_switch = False  # 是否打印状态切换日志 (True 会刷屏)
 data_file = "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
 
 
-# ==================== 以下是高级配置，一般不用改 ====================
-
-# 物理下限
-min_grid_width_bps = 1   # 最小网格宽度 (基点, 5bps = 0.05%)
-
-# 波动率 K 系数
-vol_k_factor = 1.0
-
-# ==================== 参数优化推荐组合 ====================
-"""
-🏆 低回撤组合 (适合加杠杆):
-    target_ratio = 0.2
-    grid_width_base = 0.01
-    预期: 年化 12.7%, 回撤 -25.7%, 卡玛 0.50
-    2x杠杆: 年化 25.4%, 回撤 -51.4%
-
-📊 平衡组合:
-    target_ratio = 0.3
-    grid_width_base = 0.008
-    预期: 年化 17.5%, 回撤 -36.8%
-
-💰 激进组合:
-    target_ratio = 0.5
-    grid_width_base = 0.004
-    预期: 年化 26%, 回撤 -54.7%
-"""
+# ==================== 备注 ====================
+# 如果你未来真的要做“非 50:50”的研究，建议新建一个策略编号（避免把 8号香农策略 的定义搞乱）。
