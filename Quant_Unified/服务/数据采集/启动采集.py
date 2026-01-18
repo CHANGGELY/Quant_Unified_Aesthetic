@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any
 
+from 基础库.common_core.data_center import 获取历史行情子目录
 # ==========================================
 # 1. 项目路径自动注入 (Path Injection)
 # ==========================================
@@ -120,8 +121,8 @@ SYMBOLS = ["BTCUSDC", "ETHUSDC", "SOLUSDC", "XRPUSDC", "BNBUSDC"]
 
 BASE_URL = "wss://fstream.binance.com/stream?streams={}"
 
-# 数据存储路径
-DATA_DIR = PROJECT_ROOT / "data" / "行情数据"
+# 数据存储路径（历史行情中心）
+DATA_DIR = 获取历史行情子目录("行情数据")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 # 日志路径
@@ -254,7 +255,7 @@ class DataStorageEngine:
 
             df = pd.DataFrame(data)
             
-            # 生成路径: ./data/行情数据/BTCUSDC/2025-12-20/
+            # 生成路径: 数据/历史行情中心/行情数据/BTCUSDC/2025-12-20/
             today_str = datetime.now().strftime('%Y-%m-%d')
             save_dir = self.output_dir / symbol / today_str
             save_dir.mkdir(parents=True, exist_ok=True)
@@ -582,7 +583,7 @@ class BinanceRecorder:
 
         await asyncio.get_running_loop().run_in_executor(None, _run_blocking)
 
-        report_path = PROJECT_ROOT / "data" / "行情数据_整理" / "整理报告.json"
+        report_path = 获取历史行情子目录("行情数据_整理") / "整理报告.json"
         try:
             return json.loads(report_path.read_text(encoding="utf-8"))
         except Exception:

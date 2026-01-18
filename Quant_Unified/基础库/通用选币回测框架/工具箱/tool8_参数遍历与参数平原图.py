@@ -22,6 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.pa
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from Quant_Unified.基础库.common_core.data_center import 获取历史行情子目录
 from Quant_Unified.基础库.通用选币回测框架.核心.模型.配置 import 回测配置工厂
 from Quant_Unified.基础库.通用选币回测框架.核心.工具.路径 import 获取文件夹路径
 from Quant_Unified.基础库.通用选币回测框架.流程.步骤02_计算因子 import 计算因子
@@ -45,8 +46,8 @@ except ImportError:
         spot_c_rate = 0.002
         black_list = []
         min_kline_num = 0
-        spot_path = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/data/candle_csv/spot') # 示例路径，需修改
-        swap_path = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/data/candle_csv/swap')
+        spot_path = 获取历史行情子目录("candle_csv/spot")  # 示例路径，可按需调整
+        swap_path = 获取历史行情子目录("candle_csv/swap")
         max_workers = 4
     config = MockConfig()
 

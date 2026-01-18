@@ -15,8 +15,14 @@ def _default_data_path() -> Path:
         文件名 = 生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
         return 获取分钟K线H5文件(文件名)
     except Exception:
-        repo_strat_root = Path(__file__).resolve().parents[1]  # Quant_Unified/策略仓库
-        return repo_strat_root / "二号网格策略" / "data_center" / "ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
+        repo_root = Path(__file__).resolve().parents[3]  # 仓库根目录
+        return (
+            repo_root
+            / "数据"
+            / "历史行情中心"
+            / "分钟K线"
+            / "ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
+        )
 
 
 @dataclass(frozen=True)

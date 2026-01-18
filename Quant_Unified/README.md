@@ -53,11 +53,12 @@ pinned: false
 1. **采集**: `服务/数据采集/启动采集.py` 实时采集 Binance 数据并保存为 `.parquet` 碎片。
 2. **整理**: `app.py` 每 12 小时触发一次 `整理行情数据.py`，将碎片合并为每日文件。
 3. **同步**: 整理完成后，自动运行 `hf_sync.py` 将数据推送到数据集 `chenchuanshen/Quant_Market_Data`。
+4. **落盘位置**: 默认写入仓库根目录 `数据/历史行情中心/`，由 `common_core.data_center` 统一定位。
 
 ### 3. 本地获取数据
-在本地项目根目录下运行：
+在仓库根目录运行：
 ```bash
-python 下载云端数据.py
+python -X utf8 Quant_Unified/服务/数据采集/下载云端数据.py
 ```
 该脚本会自动对比云端与本地差异，只下载新增的行情数据。
 

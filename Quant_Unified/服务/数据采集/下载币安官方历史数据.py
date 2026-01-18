@@ -30,6 +30,7 @@ import xml.etree.ElementTree as ET
 import pandas as pd
 import requests
 
+from 基础库.common_core.data_center import 获取历史行情子目录
 
 S3_LIST_BASE = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision"
 DL_BASE = "https://data.binance.vision/"
@@ -285,13 +286,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--out-root",
         type=str,
-        default=str(PROJECT_ROOT / "data" / "行情数据_整理"),
+        default=str(获取历史行情子目录("行情数据_整理")),
         help="输出目录（会按 symbol/date 组织）",
     )
     p.add_argument(
         "--cache-root",
         type=str,
-        default=str(PROJECT_ROOT / "data" / "币安官方历史数据_raw"),
+        default=str(获取历史行情子目录("币安官方历史数据_raw")),
         help="原始 zip 缓存目录（可断点续跑）",
     )
     p.add_argument(

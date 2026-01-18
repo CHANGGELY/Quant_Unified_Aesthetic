@@ -1,6 +1,10 @@
 import h5py
 
-DATA_PATH = '/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5'
+from common_core.data_center import 生成分钟K线文件名, 获取分钟K线H5文件
+
+DATA_PATH = 获取分钟K线H5文件(
+    生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
+)
 
 def inspect_h5(path):
     print(f"Inspecting {path}...")

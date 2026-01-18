@@ -4,7 +4,7 @@ Binance USDS-M Futures Historical AggTrade Downloader
 
 功能：
 1. 指定时间范围，自动从币安 REST API 下载历史归集成交 (aggTrade)。
-2. 自动补全到 `data/行情数据` 目录，格式与实时采集一致 (Parquet)。
+2. 自动补全到 `数据/历史行情中心/行情数据` 目录，格式与实时采集一致 (Parquet)。
 3. 支持断点续传（基于时间戳）。
 4. 自动处理 API 权重限制。
 
@@ -28,6 +28,8 @@ import aiohttp
 import pandas as pd
 from aiohttp import ClientSession
 
+from 基础库.common_core.data_center import 获取历史行情子目录
+
 # ==========================================
 # 1. 项目路径与依赖检查
 # ==========================================
@@ -50,7 +52,7 @@ BASE_URL = "https://fapi.binance.com"  # USDC 合约通常也在 fapi，需确�
 # 实际上 Binance 的 USDC 永续合约现在归类在 U本位合约 (UM) 下，使用 fapi。
 # 接口: GET /fapi/v1/aggTrades
 
-DATA_DIR = PROJECT_ROOT / "data" / "行情数据"
+DATA_DIR = 获取历史行情子目录("行情数据")
 
 class BinanceHistoryDownloader:
     def __init__(self, symbol: str, start_time: datetime, end_time: datetime):

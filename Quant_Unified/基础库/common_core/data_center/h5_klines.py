@@ -34,6 +34,42 @@ def 获取Quant_Unified根目录() -> Path:
     raise RuntimeError("❌ 无法定位 Quant_Unified 根目录（请检查项目目录结构）")
 
 
+def 获取仓库根目录() -> Path:
+    """
+    获取仓库根目录（Quant_Unified 的上一层）。
+    """
+    return 获取Quant_Unified根目录().parent
+
+
+def 获取历史行情中心根目录() -> Path:
+    """
+    获取“历史行情中心”根目录。
+
+    支持环境变量覆盖（优先级从高到低）：
+        1) QUANT_HIST_DATA_DIR
+        2) QUANT_H5_DATA_DIR（兼容旧变量名）
+    """
+    自定义目录 = os.getenv("QUANT_HIST_DATA_DIR", "").strip()
+    if not 自定义目录:
+        自定义目录 = os.getenv("QUANT_H5_DATA_DIR", "").strip()
+    if 自定义目录:
+        return Path(自定义目录).expanduser().resolve()
+
+    仓库根 = 获取仓库根目录()
+    return 仓库根 / "数据" / "历史行情中心"
+
+
+def 获取历史行情子目录(*paths: str, 自动创建: bool = True) -> Path:
+    """
+    返回历史行情中心下的子目录，并按需自动创建。
+    """
+    base = 获取历史行情中心根目录()
+    p = base.joinpath(*paths)
+    if 自动创建:
+        p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
 def 生成分钟K线文件名(
     交易对: str,
     *,
@@ -59,23 +95,20 @@ def 获取分钟K线H5文件(文件名: str) -> Path:
     按约定目录顺序查找分钟线 H5 文件，找到就返回 Path，找不到就抛异常。
 
     支持环境变量覆盖：
-        - QUANT_H5_DATA_DIR：如果你想把数据放到其它硬盘/目录，设置它即可
+        - QUANT_HIST_DATA_DIR：历史行情中心根目录
+        - QUANT_H5_DATA_DIR：兼容旧变量名
     """
     文件名 = str(文件名).strip()
     if not 文件名:
         raise ValueError("文件名不能为空")
 
-    quant_root = 获取Quant_Unified根目录()
-
-    自定义目录 = os.getenv("QUANT_H5_DATA_DIR", "").strip()
     候选目录: list[Path] = []
-    if 自定义目录:
-        候选目录.append(Path(自定义目录).expanduser().resolve())
-
-    # 推荐新位置：Quant_Unified/data/历史K线_H5
-    候选目录.append(quant_root / "data" / "历史K线_H5")
+    # 推荐新位置：数据/历史行情中心/分钟K线
+    候选目录.append(获取历史行情子目录("分钟K线"))
 
     # 兼容旧位置（逐步迁移中）
+    quant_root = 获取Quant_Unified根目录()
+    候选目录.append(quant_root / "data" / "历史K线_H5")
     候选目录.append(quant_root / "策略仓库" / "二号网格策略" / "data_center")
     候选目录.append(quant_root / "策略仓库" / "4 号做市策略")  # 旧策略目录里也可能放了 .h5
 
@@ -94,7 +127,6 @@ def 获取分钟K线H5文件(文件名: str) -> Path:
         f"   文件名: {文件名}\n"
         f"   已查找目录: {', '.join(str(d) for d in 候选目录)}\n"
         "   你可以：\n"
-        "   1) 把文件放到 Quant_Unified/data/历史K线_H5/\n"
-        "   2) 或设置环境变量 QUANT_H5_DATA_DIR 指向你的数据目录"
+        "   1) 把文件放到 数据/历史行情中心/分钟K线/\n"
+        "   2) 或设置环境变量 QUANT_HIST_DATA_DIR 指向你的数据目录"
     )
-

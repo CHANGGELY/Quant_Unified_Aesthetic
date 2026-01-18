@@ -9,6 +9,7 @@
 from pathlib import Path
 import hashlib
 
+from 基础库.common_core.data_center import 获取历史行情子目录
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -40,7 +41,7 @@ class Config:
             'end_time': '2025-10-09 00:00:00',
             'timezone': 'Asia/Shanghai',
             'num_hours': 0,
-            'data_center_dir': PROJECT_ROOT / '一号择时策略/select-coin-feat-long_short_compose/data/swap',
+            'data_center_dir': 获取历史行情子目录("分钟K线"),
             'local_data_path': None,
 
             # 安全阀
@@ -89,4 +90,3 @@ class Config:
             'post_only_reject_retry_limit': self.post_only_reject_retry_limit,
             'tick_size': self.tick_size,
         }
-

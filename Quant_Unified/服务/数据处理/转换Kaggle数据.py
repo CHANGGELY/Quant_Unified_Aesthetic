@@ -3,10 +3,10 @@
 功能描述: 
     将 Kaggle 下载的分钟级 CSV 格式订单簿数据转换为系统标准的 Parquet 格式。
     原数据结构: [Symbol, 50*AskP, 50*AskQ, 50*BidP, 50*BidQ, Timestamp]
-    目标路径: data/外部数据/Kaggle_L2_1m/{symbol}/{date}/depth.parquet
+    目标路径: 数据/历史行情中心/外部数据/Kaggle_L2_1m/{symbol}/{date}/depth.parquet
 
 使用说明:
-    1. 确保 archive.zip 位于 data/分钟级盘口/archive.zip
+    1. 确保 archive.zip 位于 数据/历史行情中心/分钟级盘口/archive.zip
     2. 直接运行此脚本
     3. 脚本会自动解压、清洗、重命名列、并按日期分片存储
 
@@ -22,14 +22,16 @@ from pathlib import Path
 import os
 import sys
 
+from 基础库.common_core.data_center import 获取历史行情子目录
+
 # 添加项目根目录到路径，以便导入配置（如果需要）
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
-# 配置
-ZIP_PATH = PROJECT_ROOT / "data/分钟级盘口/archive.zip"
-OUTPUT_ROOT = PROJECT_ROOT / "data/外部数据/Kaggle_L2_1m"
-TEMP_DIR = PROJECT_ROOT / "data/temp_kaggle_extract"
+# 配置（历史行情中心）
+ZIP_PATH = 获取历史行情子目录("分钟级盘口") / "archive.zip"
+OUTPUT_ROOT = 获取历史行情子目录("外部数据", "Kaggle_L2_1m")
+TEMP_DIR = 获取历史行情子目录("临时", "kaggle_extract")
 
 # 映射配置
 SOURCE_DEPTH_LEVEL = 50 # Kaggle 文件固定为 50 档

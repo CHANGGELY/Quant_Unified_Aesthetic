@@ -9,6 +9,9 @@ ENV/
 
 # Data & Logs (核心：排除大数据文件和日志)
 Quant_Unified/data/
+数据/历史行情中心/**
+!数据/历史行情中心/
+!数据/历史行情中心/README.md
 Quant_Unified/系统日志/
 *.parquet
 *.csv
