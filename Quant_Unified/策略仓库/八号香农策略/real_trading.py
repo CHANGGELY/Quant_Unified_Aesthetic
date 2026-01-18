@@ -118,9 +118,9 @@ else:
     print("🧪以此启动: 测试网模式 (Demo Trading)")
 from 策略仓库.八号香农策略.api import binance_raw as api  # 使用原生 requests 版本
 from 策略仓库.八号香农策略.api.ws_manager import BinanceWsManager
-from 策略仓库.八号香农策略.program.volatility import VolatilityEngine
-from 策略仓库.八号香农策略.program.cprp import CPRPEngine
+from 策略仓库.八号香农策略.program.strategy_brain import 八号香农策略脑子
 from 策略仓库.八号香农策略.program.leverage_model import resolve_leverage_spec, available_balance
+from 基础库.common_core.strategy import K线, 订单方向, 账户状态, 成交回报
 from supabase import create_client, Client
 
 # ==========================================
@@ -201,15 +201,15 @@ class ShannonProphet:
         self.equity_asset = self._resolve_equity_asset()
         self.leverage_spec = None
         
-        # 核心算子
-        self.vol_engine = VolatilityEngine(self.config)
-        self.cprp_engine = CPRPEngine(self.config)
+        # 策略脑子（同一份策略逻辑，回测/实盘共用）
+        self.策略 = 八号香农策略脑子(self.config)
         
         # 状态缓存
         self.current_price = 0.0
         self.equity_cache = 0.0
         self.available_balance_cache = 0.0
         self.position_cache = 0.0 # 纯数量
+        self.unrealized_pnl_cache = 0.0
         
         # 订单缓存 (Buy, Sell)
         self.active_orders = {'BUY': None, 'SELL': None} # {'id': '...', 'price': 100, 'qty': 0.1}
@@ -226,7 +226,8 @@ class ShannonProphet:
         # 你可以把它理解成“收盘铃声”：
         # - 每一分钟结束，交易所会推送一条“这根 1m K 线已收盘”的消息
         # - 我们用它来喂波动率引擎，并且触发下一分钟的挂单计算
-        self._kline_close_queue: asyncio.Queue[tuple[int, float]] = asyncio.Queue(maxsize=10)
+        # 注意：队列里存的是 K线（开高低收），不是只有收盘价
+        self._kline_close_queue: asyncio.Queue = asyncio.Queue(maxsize=10)
         self._last_kline_close_time_ms: int = 0
         
         # Supabase 客户端
@@ -591,7 +592,7 @@ class ShannonProphet:
         await self._补齐成交账本并重建FIFO()
         
     async def _preload_volatility(self):
-        """预加载 K 线数据以初始化波动率"""
+        """预加载 K 线数据以预热策略脑子（波动率/中心价递推状态）。"""
         try:
             now = datetime.now()
             # 动态读取 Long Window 配置，只拉取必要数量的 K 线
@@ -604,7 +605,7 @@ class ShannonProphet:
                 df_closed = df.iloc[:-1].copy() if len(df) > 1 else df
                 prices = df_closed['close'].values
                 for p in prices:
-                    self.vol_engine.add_price(p)
+                    self.策略.预热收盘价(float(p))
 
                 # 记录最后一根“已收盘 K 线”的 close_time，避免 WS 重复推同一根导致重复喂数据
                 try:
@@ -612,7 +613,7 @@ class ShannonProphet:
                 except Exception:
                     pass
 
-                logger.info(f"已预加载 {len(prices)} 条 K 线数据。当前状态: {self.vol_engine.get_market_status()}")
+                logger.info(f"已预热 {len(prices)} 条 K 线数据。")
         except Exception as e:
             logger.warning(f"预加载波动率数据失败: {e}")
 
@@ -647,6 +648,7 @@ class ShannonProphet:
                 self.equity_cache = mb 
                 self.available_balance_cache = ab
                 self.position_cache = pos_amt
+                self.unrealized_pnl_cache = upnl
                 if pos_entry > 0:
                     self.entry_price_cache = pos_entry
                 
@@ -717,20 +719,20 @@ class ShannonProphet:
             # 为了自适应，我们在主循环做定时采样。这里只更新缓存。
             pass
 
-    async def 推送_1m收盘K线(self, close_price: float, close_time_ms: int):
+    async def 推送_1m收盘K线(self, k线: K线):
         """
         WebSocket 收到 1 分钟 K 线“收盘”事件时调用。
 
         close_time_ms：毫秒时间戳（交易所给的时间，最权威）
         """
-        if close_price <= 0:
+        if k线.收 <= 0:
             return
-        if close_time_ms <= 0:
+        if k线.收盘时间_ms <= 0:
             return
-        if close_time_ms <= self._last_kline_close_time_ms:
+        if k线.收盘时间_ms <= self._last_kline_close_time_ms:
             return
 
-        self._last_kline_close_time_ms = close_time_ms
+        self._last_kline_close_time_ms = int(k线.收盘时间_ms)
 
         # 队列满了就丢掉最旧的一根（策略只关心最新的收盘）
         if self._kline_close_queue.full():
@@ -739,7 +741,7 @@ class ShannonProphet:
             except Exception:
                 pass
 
-        await self._kline_close_queue.put((close_time_ms, float(close_price)))
+        await self._kline_close_queue.put(k线)
 
     async def logic_loop(self):
         """
@@ -749,7 +751,7 @@ class ShannonProphet:
         - `sleep(60)` 像是“闹钟”，时间会漂移（网络卡一下就错过节拍）
         - K线收盘推送像是“学校下课铃”，每分钟准时响一次，更贴近真实行情节奏
         """
-        async def _rest补一根已收盘K线() -> tuple[int, float]:
+        async def _rest补一根已收盘K线() -> K线 | None:
             """
             兜底：如果 WS 卡住了，用 REST 拉最近 2 根 1m K 线，取倒数第 2 根（已收盘）。
 
@@ -761,52 +763,78 @@ class ShannonProphet:
                 now = datetime.now()
                 df = await asyncio.to_thread(api.fetch_candle_data, self.symbol, now, interval="1m", limit=2)
                 if df is None or df.empty or len(df) < 2:
-                    return 0, 0.0
+                    return None
                 row = df.iloc[-2]
-                close_price = float(row["close"])
+                o = float(row["open"])
+                h = float(row["high"])
+                l = float(row["low"])
+                c = float(row["close"])
+                v = float(row.get("volume", 0) or 0)
                 close_time_ms = int(row["close_time"])
                 if close_time_ms <= self._last_kline_close_time_ms:
-                    return 0, 0.0
-                return close_time_ms, close_price
+                    return None
+
+                # REST 返回的 open_time 是 datetime，这里用 close_time 反推开盘时间（足够用且稳定）
+                open_time_ms = int(close_time_ms) - 60_000
+                return K线(
+                    开始时间_ms=open_time_ms,
+                    收盘时间_ms=int(close_time_ms),
+                    开=o,
+                    高=h,
+                    低=l,
+                    收=c,
+                    成交量=v,
+                )
             except Exception as e:
                 logger.warning(f"REST 补 K 线失败: {e}")
-                return 0, 0.0
+                return None
 
         while True:
             try:
                 # 1) 等待下一根“1m K线收盘”
                 try:
-                    close_time_ms, close_price = await asyncio.wait_for(self._kline_close_queue.get(), timeout=90)
+                    k线 = await asyncio.wait_for(self._kline_close_queue.get(), timeout=90)
                 except asyncio.TimeoutError:
                     logger.warning("⚠️ 90秒未收到 1m K线收盘推送，尝试用 REST 补一根...")
-                    close_time_ms, close_price = await _rest补一根已收盘K线()
-                    if close_price <= 0:
+                    k线 = await _rest补一根已收盘K线()
+                    if k线 is None:
                         continue
 
-                self.current_price = close_price
+                self.current_price = float(k线.收)
 
-                # 2) 用“收盘价”喂波动率引擎（这是你想要的对齐口径）
-                self.vol_engine.add_price(close_price, close_time_ms / 1000.0)
-
-                # 3) 获取市场状态 & 网格宽度
-                status = self.vol_engine.get_market_status()
-                current_width_pct = status["final_width"]
-                regime = status["regime"]
-
-                # 4) 同步最新账户状态（权益可能变化）
+                # 2) 同步最新账户状态（权益可能变化）
                 await self._sync_account()
 
-                # 4.1 上报数据到 Supabase（每分钟）
+                # 3) 用“已收盘 K 线 + 当前账户状态”让策略脑子输出目标挂单
+                输出 = self.策略.在K线收盘(
+                    k线,
+                    账户状态(
+                        交易对=self.symbol,
+                        账户权益=float(self.equity_cache),
+                        可用余额=float(self.available_balance_cache),
+                        持仓数量=float(self.position_cache),
+                        持仓均价=float(self.entry_price_cache),
+                        未实现盈亏=float(self.unrealized_pnl_cache),
+                    ),
+                )
+
+                备注 = 输出.备注 or {}
+                current_width_pct = float(备注.get("grid_width", 0.0) or 0.0)
+                regime = str(备注.get("regime", "UNKNOWN") or "UNKNOWN")
+
+                # 3.1 上报数据到 Supabase（每分钟）
                 await self._log_to_supabase(regime, current_width_pct)
 
-                # 5) 计算理想挂单（用中心价减少噪音）
-                center_price = self._get_center_price()
-                buy_order, sell_order = self.cprp_engine.calculate_rebalance(
-                    center_price,
-                    self.position_cache,
-                    self.equity_cache,
-                    current_width_pct,
-                )
+                # 4) 把“策略输出的限价挂单”转换为执行器可用的 dict 列表（保持现有 execute_orders 不大改）
+                buy_order: list[dict] = []
+                sell_order: list[dict] = []
+                for 挂单 in 输出.目标挂单:
+                    if 挂单.数量 <= 0 or 挂单.价格 <= 0:
+                        continue
+                    if 挂单.方向 == 订单方向.买:
+                        buy_order.append({"price": float(挂单.价格), "qty": float(挂单.数量)})
+                    else:
+                        sell_order.append({"price": float(挂单.价格), "qty": float(挂单.数量)})
 
                 # 6) 迟滞更新判断（避免频繁撤单）
                 should_update = False
@@ -867,15 +895,6 @@ class ShannonProphet:
 
             except Exception as e:
                 logger.error(f"逻辑循环异常: {e}")
-
-    def _get_center_price(self):
-        """
-        计算中心价 (平滑处理)
-        P_center = 0.5 * P_last + 0.5 * P_ewma
-        """
-        if self.vol_engine.ewma_price > 0:
-            return 0.5 * self.current_price + 0.5 * self.vol_engine.ewma_price
-        return self.current_price
 
     async def _check_depth_and_place(self, side, price, quantity, depth_cache=None):
         """
@@ -971,11 +990,26 @@ async def main():
                 is_closed = bool(k.get('x', False))
                 if is_closed:
                     try:
-                        close_price = float(k.get('c', 0))
-                        close_time_ms = int(k.get('T', 0))
+                        open_time_ms = int(k.get('t', 0) or 0)
+                        close_time_ms = int(k.get('T', 0) or 0)
+                        o = float(k.get('o', 0) or 0)
+                        h = float(k.get('h', 0) or 0)
+                        l = float(k.get('l', 0) or 0)
+                        c = float(k.get('c', 0) or 0)
+                        v = float(k.get('v', 0) or 0)
                     except (ValueError, TypeError):
                         return
-                    await trader.推送_1m收盘K线(close_price, close_time_ms)
+                    await trader.推送_1m收盘K线(
+                        K线(
+                            开始时间_ms=open_time_ms,
+                            收盘时间_ms=close_time_ms,
+                            开=o,
+                            高=h,
+                            低=l,
+                            收=c,
+                            成交量=v,
+                        )
+                    )
                 return
 
             if event_type == 'ORDER_TRADE_UPDATE':
@@ -1015,6 +1049,30 @@ async def main():
                         )
                     except Exception as e:
                         logger.debug(f"写入成交账本失败(可忽略): {e}")
+
+                    # 1.1 把成交回报喂给策略脑子（当前版本是 no-op，但这条“管线”要保留）
+                    try:
+                        side_upper = str(side or "").upper()
+                        if side_upper in ("BUY", "SELL") and trade_time_ms > 0 and price > 0 and qty > 0:
+                            trader.策略.在成交回报(
+                                成交回报(
+                                    交易对=str(symbol or trader.symbol),
+                                    成交时间_ms=int(trade_time_ms),
+                                    成交价=float(price),
+                                    成交量=float(qty),
+                                    方向=订单方向.买 if side_upper == "BUY" else 订单方向.卖,
+                                    订单ID=str(order_id) if order_id else None,
+                                    成交ID=str(trade_id) if trade_id else None,
+                                    是否Maker=bool(is_maker),
+                                    额外信息={
+                                        "positionSide": position_side,
+                                        "commission": commission,
+                                        "commissionAsset": commission_asset,
+                                    },
+                                )
+                            )
+                    except Exception as e:
+                        logger.warning(f"策略脑子处理成交回报失败(可忽略): {e}")
                     
                     # [精准] 本地 FIFO 盈亏计算
                     # 优先记录买单，卖出时进行队列匹配
