@@ -1,7 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-8号香农策略 - 自适应被动 Maker CPRP
-Quant_Unified/策略仓库/八号香农策略/real_trading.py
+8号香农策略 - 实盘脚本（被动挂单吃波动）
+
+这个文件是干嘛的？
+    你可以把它理解成“实盘机器人启动器”：
+    - 负责连接交易所（下单/撤单/查账户）
+    - 负责连 WebSocket（长连接：像电话不挂断，交易所会实时推送成交/行情）
+    - 负责把“1分钟K线已收盘”的事件喂给策略逻辑，然后把策略输出变成真实挂单
+
+本策略的核心思想（用人话讲）：
+    目标长期维持 50% 币 + 50% 现金（CPRP：Constant Proportion Rebalancing Portfolio，固定比例组合）
+    但实盘不做“收盘瞬移调仓”，而是用多层限价单被动挂着，等价格波动来“撞到你的单”才成交，
+    这样才能吃到 Maker 0 手续费的优势，并且避免频繁吃滑点。
 """
 import time
 import os
@@ -52,7 +62,12 @@ def _加载环境变量文件() -> list[Path]:
     return 候选路径
 
 
-已加载_env路径列表 = _加载环境变量文件()
+try:
+    from common_core.utils.env_kit import 加载_env文件
+except Exception:  # pragma: no cover
+    加载_env文件 = None
+
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else _加载环境变量文件()
 if 已加载_env路径列表:
     print(f"✅ 已加载环境变量文件: {' , '.join(str(p) for p in 已加载_env路径列表)}")
 else:

@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-VWAP_n 策略参数遍历优化脚本 (Standalone Optimization)
-Target: ETHUSDT Minute Data
-Strategy: Close > VWAP -> Long, Close < VWAP -> Short
-Optimization: Rank by Calmar Ratio (Ann Free Returns / Max Drawdown)
+七号 VWAP 策略 - 参数优化脚本（v7.1 单均线）
+
+这个文件是干嘛的？
+    用历史分钟数据，对 VWAP 的窗口参数 n 做搜索，看看哪个 n 的回测表现更好。
+
+术语解释（用人话）：
+    - VWAP（Volume Weighted Average Price：成交量加权平均价）
+      类比：你买菜不只看价格，还要看买了多少斤；买得越多的价格，对“平均价”的影响越大。
+    - 卡玛比率（Calmar Ratio：年化收益 / 最大回撤）
+      类比：同样赚钱，谁“最不吓人”（回撤更小）谁更稳。
 """
 
 import pandas as pd
@@ -16,8 +22,17 @@ import os
 # Filter warnings
 warnings.filterwarnings('ignore')
 
-# Data Path
-DATA_PATH = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5')
+# 数据路径：用统一数据定位中心，避免把路径写死在某台电脑上
+当前文件 = Path(__file__).resolve()
+Quant_Unified根目录 = 当前文件.parents[3]
+if str(Quant_Unified根目录) not in sys.path:
+    sys.path.insert(0, str(Quant_Unified根目录))
+
+from 基础库.common_core.data_center import 生成分钟K线文件名, 获取分钟K线H5文件
+
+DATA_PATH = 获取分钟K线H5文件(
+    生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
+)
 
 def load_data(file_path):
     """

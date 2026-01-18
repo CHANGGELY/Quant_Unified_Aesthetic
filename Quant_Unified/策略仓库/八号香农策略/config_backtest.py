@@ -13,6 +13,11 @@
     - grid_width_base: 基础网格宽度，越大交易越少
 """
 
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
 # ==================== 回测参数配置 ====================
 
 # 📊 波动率引擎参数
@@ -89,7 +94,36 @@ data_start_date = "2021-01-01"  # 回测起始日期
 verbose_regime_switch = False  # 是否打印状态切换日志 (True 会刷屏)
 
 # 📁 数据文件路径 (一般不用改)
-data_file = "/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
+def _默认数据文件路径() -> str:
+    """
+    统一数据入口（避免把路径写死在某台电脑上）。
+
+    优先级：
+      1) 环境变量 SHANNON8_DATA_FILE（你想临时切数据文件时用）
+      2) common_core.data_center 自动定位（推荐）
+      3) 兼容旧路径（仍然能跑，但不建议长期依赖）
+    """
+    v = os.getenv("SHANNON8_DATA_FILE", "").strip()
+    if v:
+        return v
+
+    try:
+        from common_core.data_center import 生成分钟K线文件名, 获取分钟K线H5文件
+
+        文件名 = 生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
+        return str(获取分钟K线H5文件(文件名))
+    except Exception:
+        quant_root = Path(__file__).resolve().parents[2]  # Quant_Unified
+        return str(
+            quant_root
+            / "策略仓库"
+            / "二号网格策略"
+            / "data_center"
+            / "ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
+        )
+
+
+data_file = _默认数据文件路径()
 
 
 # ==================== 备注 ====================

@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-七号VWAP策略 (V7.3) - 贝叶斯优化
+七号 VWAP 策略（V7.3 布林带）- 贝叶斯优化（Optuna）
+
+这个文件是干嘛的？
+    自动“试参数”，找出让回测表现更好的参数组合（比如 n、k、SMA/EMA、趋势/反转模式）。
+
+术语解释（用人话）：
+    - Optuna：一个自动调参库，会根据你前面试过的结果，越来越聪明地挑参数去试。
+    - Calmar（卡玛比率）：年化收益 / 最大回撤。回撤就是“从最高点跌下来最深有多深”。
 优化目标: Calmar Ratio
 优化参数:
     - n (均线周期): 100 ~ 10000
@@ -19,7 +26,7 @@ import sys
 # 引用同目录下的启动回测逻辑
 sys.path.append(str(Path(__file__).parent))
 try:
-    from 启动回测 import load_data, run_backtest
+    from 启动回测 import DATA_PATH, load_data, run_backtest
 except ImportError:
     # Fallback if run directly and path issue
     import importlib.util
@@ -28,11 +35,11 @@ except ImportError:
     spec.loader.exec_module(module)
     load_data = module.load_data
     run_backtest = module.run_backtest
+    DATA_PATH = module.DATA_PATH
 
 warnings.filterwarnings('ignore')
 
 # ======================= [全局配置] =======================
-DATA_PATH = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5')
 START_DATE = '2021-01-01'
 END_DATE   = '2025-06-15'
 
@@ -48,7 +55,10 @@ CACHED_DATA = None
 
 def get_data():
     global CACHED_DATA
+    global DATA_PATH
     if CACHED_DATA is None:
+        if DATA_PATH is None:
+            raise RuntimeError("DATA_PATH 未初始化：请检查是否成功导入 启动回测.py 中的 DATA_PATH")
         CACHED_DATA = load_data(DATA_PATH, START_DATE, END_DATE)
     return CACHED_DATA
 
