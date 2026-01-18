@@ -69,6 +69,7 @@ class K线撮合执行器(执行器接口):
         最小维持保证金率: float = 0.005,
         update_threshold_ratio: float = 0.05,
         价格偏离阈值: float = 0.5,
+        启用迟滞更新: bool = True,
     ) -> None:
         self._交易对 = str(交易对)
         self._钱包余额 = float(初始资金)
@@ -80,6 +81,7 @@ class K线撮合执行器(执行器接口):
         self._风控 = LiquidationChecker(min_margin_rate=float(最小维持保证金率))
         self._更新阈值 = float(update_threshold_ratio)
         self._价格偏离阈值 = float(价格偏离阈值)
+        self._启用迟滞更新 = bool(启用迟滞更新)
 
         self._活跃买单: list[限价挂单] = []
         self._活跃卖单: list[限价挂单] = []
@@ -119,6 +121,18 @@ class K线撮合执行器(执行器接口):
         备注 = 输出.备注 or {}
         当前宽度 = float(备注.get("grid_width", 0.0) or 0.0)
         当前状态 = str(备注.get("regime", "") or "")
+
+        # ====== “完全跟随”模式：策略说挂什么就挂什么 ======
+        # 说明：
+        #   - 有些策略（例如经典网格）希望“每次输出都精确覆盖当前活跃挂单”
+        #   - 迟滞更新属于“交易执行层的优化策略”，不应强行绑定到所有策略
+        if not self._启用迟滞更新:
+            self._活跃买单 = 目标买单
+            self._活跃卖单 = 目标卖单
+            self._上次持仓数量 = self._持仓数量
+            self._上次网格宽度 = 当前宽度 if 当前宽度 > 0 else self._上次网格宽度
+            self._上次状态 = 当前状态 or self._上次状态
+            return
 
         # ====== 迟滞更新判断（对齐实盘思路）======
         需要更新 = False
