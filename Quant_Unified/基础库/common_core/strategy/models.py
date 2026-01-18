@@ -85,6 +85,20 @@ class 账户状态:
     持仓数量: float
     持仓均价: float
     未实现盈亏: float = 0.0
+    # ====== 可选扩展：双向持仓（对冲模式）======
+    # 解释：
+    #   有些合约账户支持“同时持有多头和空头”（对冲模式）。
+    #   这时用一个“净持仓数量”是不够的，因为：
+    #     - 多头和空头可能同时非 0
+    #     - 它们各自的开仓均价也不同
+    #
+    # 约定：
+    #   - 多头持仓数量 / 空头持仓数量 都是“绝对值数量”（>=0）
+    #   - 如果你只做单向（净持仓）策略，这些字段保持 0 即可
+    多头持仓数量: float = 0.0
+    多头持仓均价: float = 0.0
+    空头持仓数量: float = 0.0
+    空头持仓均价: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +118,11 @@ class 限价挂单:
     只做挂单: bool = True
     只减仓: bool = False
     客户端订单ID: str | None = None
+    # 对冲模式下，需要额外标记“这张单属于多头还是空头”
+    # - 多：LONG（多头仓位）
+    # - 空：SHORT（空头仓位）
+    # - None：表示“净持仓模式/不区分仓位方向”
+    仓位方向: 仓位方向 | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,6 +145,7 @@ class 成交回报:
     成交ID: str | None = None
     是否Maker: bool | None = None
     额外信息: dict[str, Any] = field(default_factory=dict)
+    仓位方向: 仓位方向 | None = None
 
 
 @dataclass(frozen=True, slots=True)
