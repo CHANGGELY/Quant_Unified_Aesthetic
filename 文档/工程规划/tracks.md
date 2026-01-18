@@ -1,15 +1,15 @@
 # Conductor Tracks
 
 ## [x] Track: Backtest Framework Fusion & Localization
-*Link: [./conductor/tracks/backtest_fusion_20251226/](./conductor/tracks/backtest_fusion_20251226/)*
+*Link: [./tracks/backtest_fusion_20251226/](./tracks/backtest_fusion_20251226/)*
 
 ---
 
 ## [x] Track: Codebase Localization and Branding Removal
-*Link: [./conductor/tracks/cn_rename_20251220/](./conductor/tracks/cn_rename_20251220/)*
+*Link: [./tracks/cn_rename_20251220/](./tracks/cn_rename_20251220/)*
 
 ---
 
 ## [~] Track: Integration of Tardis HFT data (100ms) with LightGBM for Strategy 5
 
-*Link: [./conductor/tracks/tardis_hft_20251222/](./conductor/tracks/tardis_hft_20251222/)*
+*Link: [./tracks/tardis_hft_20251222/](./tracks/tardis_hft_20251222/)*

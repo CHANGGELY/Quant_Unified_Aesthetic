@@ -5,7 +5,7 @@ import sys
 import json
 
 # Add the script directory to path so we can import it
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../conductor/scripts')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../文档/工程规划/scripts')))
 
 from generate_rename_map import generate_map
 

@@ -1,7 +1,7 @@
 # Track Specification: 回测框架融合与深度中文化 (Backtest Framework Fusion & Localization)
 
 ## 1. 概述 (Overview)
-本任务旨在将 `select-coin-25年终版` (上游版本) 的优势特性，深度融合到 `Quant_Unified` 项目中。目标是创建一个位于 `Quant_Unified/基础库/通用选币回测框架` 的全新、独立、功能完备且**全中文化**的回测系统。该系统将作为未来所有选币策略的通用底座。
+本任务旨在将 `归档/select-coin-25年终版` (上游版本) 的优势特性，深度融合到 `Quant_Unified` 项目中。目标是创建一个位于 `Quant_Unified/基础库/通用选币回测框架` 的全新、独立、功能完备且**全中文化**的回测系统。该系统将作为未来所有选币策略的通用底座。
 
 ## 2. 核心目标 (Core Goals)
 1.  **特性移植 (Feature Backport)**: 将 `25年终版` 中更丰富的 `factors` (80+因子) 和强大的 `tools` (可视化工具) 完整迁移过来。
