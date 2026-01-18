@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Mapping
 
 
 class 订单方向(str, Enum):
@@ -69,6 +69,96 @@ class K线:
     低: float
     收: float
     成交量: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
+class 盘口快照:
+    """
+    L2 盘口快照（Order Book Snapshot：订单簿快照）
+
+    这是什么？
+        你可以把“盘口”理解成交易所的“排队队伍”：
+        - bid（买盘）：大家挂着“我愿意用多少钱买”
+        - ask（卖盘）：大家挂着“我愿意用多少钱卖”
+        bid/ask 的最前面，就是“买一/卖一”（最优价格）。
+
+    这个快照用来做什么？
+        - 高频策略（例如 5 号预测）会用盘口的形状（量多不多、价差大不大）做特征
+        - 高频执行器会用 bid/ask 来模拟“买入要付 ask，卖出拿 bid”的点差成本
+
+    字段约定：
+        - bid价/bid量/ask价/ask量 都是从 1 档开始（买一/卖一）
+        - 缺失档位用 0.0 填充（方便 NumPy/模型喂数据）
+    """
+
+    交易对: str
+    时间_ms: int
+    bid价: tuple[float, ...]
+    bid量: tuple[float, ...]
+    ask价: tuple[float, ...]
+    ask量: tuple[float, ...]
+
+    @property
+    def 深度档数(self) -> int:
+        return int(min(len(self.bid价), len(self.ask价)))
+
+    def 买一价(self) -> float:
+        return float(self.bid价[0]) if self.bid价 else 0.0
+
+    def 卖一价(self) -> float:
+        return float(self.ask价[0]) if self.ask价 else 0.0
+
+    def 计算中间价(self) -> float:
+        bid1 = float(self.买一价())
+        ask1 = float(self.卖一价())
+        if bid1 > 0.0 and ask1 > 0.0:
+            return float((bid1 + ask1) * 0.5)
+        return float(max(bid1, ask1, 0.0))
+
+    def 计算加权中间价(self) -> float:
+        """
+        加权中间价（Weighted Mid Price）
+
+        用人话说：
+            - 如果买一量更大，价格更“偏向买方”
+            - 如果卖一量更大，价格更“偏向卖方”
+        """
+        bid1 = float(self.买一价())
+        ask1 = float(self.卖一价())
+        if bid1 <= 0.0 or ask1 <= 0.0:
+            return float(max(bid1, ask1, 0.0))
+
+        bq1 = float(self.bid量[0]) if self.bid量 else 0.0
+        aq1 = float(self.ask量[0]) if self.ask量 else 0.0
+        denom = bq1 + aq1
+        if denom <= 0.0:
+            return float((bid1 + ask1) * 0.5)
+
+        return float((bid1 * aq1 + ask1 * bq1) / denom)
+
+    @classmethod
+    def 从扁平字典(
+        cls,
+        *,
+        交易对: str,
+        时间_ms: int,
+        depth_levels: int,
+        数据: Mapping[str, Any],
+    ) -> "盘口快照":
+        if depth_levels <= 0:
+            raise ValueError("depth_levels 必须 > 0")
+        bid价 = tuple(float(数据.get(f"bid{i}_p", 0.0) or 0.0) for i in range(1, depth_levels + 1))
+        bid量 = tuple(float(数据.get(f"bid{i}_q", 0.0) or 0.0) for i in range(1, depth_levels + 1))
+        ask价 = tuple(float(数据.get(f"ask{i}_p", 0.0) or 0.0) for i in range(1, depth_levels + 1))
+        ask量 = tuple(float(数据.get(f"ask{i}_q", 0.0) or 0.0) for i in range(1, depth_levels + 1))
+        return cls(
+            交易对=str(交易对),
+            时间_ms=int(时间_ms),
+            bid价=bid价,
+            bid量=bid量,
+            ask价=ask价,
+            ask量=ask量,
+        )
 
 
 @dataclass(frozen=True, slots=True)

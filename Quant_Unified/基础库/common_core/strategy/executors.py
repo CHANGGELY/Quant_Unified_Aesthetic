@@ -23,7 +23,7 @@ from typing import Iterable
 import numpy as np
 
 from .interfaces import 执行器接口
-from .models import K线, 账户状态, 成交回报, 策略输出, 限价挂单, 订单方向, 目标仓位, 仓位方向
+from .models import K线, 盘口快照, 账户状态, 成交回报, 策略输出, 限价挂单, 订单方向, 目标仓位, 仓位方向
 from ..risk_ctrl.liquidation import LiquidationChecker
 
 
@@ -1107,6 +1107,260 @@ class K线调仓执行器(执行器接口):
             return
 
         # 同方向加减仓：用加权平均（减仓不会影响剩余部分成本，但这里用统一公式足够稳定）
+        prev_val = abs(self._持仓数量) * float(self._持仓均价)
+        delta_val = abs(delta_qty) * float(exec_price)
+        total_qty = abs(new_qty)
+        if total_qty > 0.0:
+            self._持仓均价 = float((prev_val + delta_val) / total_qty)
+        self._持仓数量 = float(new_qty)
+
+    def _检查爆仓(self, mark_price: float, 时间戳_ms: int | None) -> None:
+        if self._是否爆仓:
+            return
+        if mark_price <= 0.0:
+            return
+        if self._持仓数量 == 0.0:
+            return
+
+        pos_val = abs(self._持仓数量) * float(mark_price)
+        is_liq, _ = self._风控.check_margin_rate(self._账户权益, pos_val)
+        if not is_liq:
+            return
+
+        self._是否爆仓 = True
+        self._爆仓时间_ms = int(时间戳_ms) if 时间戳_ms is not None else None
+        self._爆仓价格 = float(mark_price)
+        self._账户权益 = 0.0
+        self._持仓数量 = 0.0
+        self._持仓均价 = 0.0
+
+
+class 盘口调仓执行器(执行器接口):
+    """
+    盘口调仓执行器（单标的，盘口驱动）
+
+    适用场景：
+        - 高频预测策略（例如 5 号）：每 100ms/1s 得到一帧盘口快照，然后决定做多/做空/空仓
+
+    为什么需要它？
+        你可以把 K 线想成“压缩过的视频”，而盘口快照更像“逐帧画面”：
+        - K线调仓：每分钟才结算一次，无法模拟高频进出
+        - 盘口调仓：每 100ms/1s 都能结算，且执行价用 bid/ask（天然包含点差成本）
+
+    交易与成本模型（可配置，但默认足够贴近实盘）：
+        - 结算价（mark price）：用中间价（mid）或加权中间价（WMP）做浮动盈亏结算
+        - 成交价（execution price）：
+            - 买入：按卖一价（ask1）成交，再叠加滑点率（更保守）
+            - 卖出：按买一价（bid1）成交，再叠加滑点率（更保守）
+        - 手续费：按成交额 * 手续费率扣减
+        - 爆仓：保证金率 = 账户权益 / 持仓名义，低于最小维持保证金率则账户归零
+    """
+
+    def __init__(
+        self,
+        交易对: str,
+        初始资金: float,
+        *,
+        数量步进: float,
+        手续费率: float,
+        滑点率: float,
+        最小下单名义: float = 0.0,
+        最小维持保证金率: float = 0.005,
+        结算价模式: str = "wmp",
+    ) -> None:
+        if 数量步进 <= 0:
+            raise ValueError(f"数量步进 必须 > 0, 当前={数量步进}")
+        if 手续费率 < 0 or 滑点率 < 0:
+            raise ValueError(f"手续费率/滑点率 必须 >= 0, 当前 fee={手续费率}, slippage={滑点率}")
+        if 初始资金 < 0:
+            raise ValueError(f"初始资金 必须 >= 0, 当前={初始资金}")
+
+        模式 = str(结算价模式 or "").strip().lower()
+        if 模式 not in {"mid", "wmp"}:
+            raise ValueError(f"结算价模式 只能是 mid/wmp, 当前={结算价模式}")
+
+        self._交易对 = str(交易对)
+        self._数量步进 = float(数量步进)
+        self._手续费率 = float(手续费率)
+        self._滑点率 = float(滑点率)
+        self._最小下单名义 = float(最小下单名义)
+        self._结算价模式 = 模式
+        self._风控 = LiquidationChecker(min_margin_rate=float(最小维持保证金率))
+
+        self._最新_bid1 = 0.0
+        self._最新_ask1 = 0.0
+        self._最新结算价 = 0.0
+        self._上次结算价 = 0.0
+        self._最新时间_ms: int | None = None
+
+        self._账户权益 = float(初始资金)
+        self._持仓数量 = 0.0
+        self._持仓均价 = 0.0
+
+        self._统计 = 调仓统计()
+        self._是否爆仓 = False
+        self._爆仓时间_ms: int | None = None
+        self._爆仓价格: float | None = None
+
+    # =========================
+    # 执行器接口
+    # =========================
+
+    def 获取账户状态(self) -> 账户状态:
+        未实现盈亏 = 0.0
+        if self._持仓数量 != 0.0 and self._持仓均价 > 0.0 and self._最新结算价 > 0.0:
+            未实现盈亏 = self._持仓数量 * (self._最新结算价 - self._持仓均价)
+
+        return 账户状态(
+            交易对=self._交易对,
+            账户权益=float(self._账户权益),
+            可用余额=float(self._账户权益),
+            持仓数量=float(self._持仓数量),
+            持仓均价=float(self._持仓均价),
+            未实现盈亏=float(未实现盈亏),
+        )
+
+    def 执行策略输出(self, 输出: 策略输出) -> None:
+        if self._是否爆仓:
+            return
+
+        目标 = 输出.目标仓位
+        if 目标 is None:
+            return
+
+        if self._最新结算价 <= 0.0:
+            # 没有最新结算价就无法计算目标数量
+            return
+
+        目标 = self._归一化目标仓位(目标)
+
+        # 1) 计算目标仓位数量（用“结算价/mark price”做换算，更稳定）
+        目标数量 = 0.0
+        if 目标.方向 != 仓位方向.空仓:
+            sign = 1.0 if 目标.方向 == 仓位方向.多 else -1.0
+            名义杠杆 = float(目标.名义杠杆)
+            if 名义杠杆 < 0:
+                return
+            目标名义 = self._账户权益 * 名义杠杆
+            raw_qty = sign * (目标名义 / self._最新结算价)
+            目标数量 = self._按步进截断(raw_qty)
+            if abs(目标数量) * self._最新结算价 < self._最小下单名义:
+                目标数量 = 0.0
+
+        delta = float(目标数量 - self._持仓数量)
+        if abs(delta) <= 1e-12:
+            return
+
+        # 2) 执行价：买用 ask，卖用 bid，再叠加滑点率（更保守）
+        exec_p = self._计算执行价(delta_qty=delta)
+        if exec_p <= 0.0:
+            return
+
+        turnover = abs(delta) * exec_p
+        fee_cost = turnover * self._手续费率
+        impact_cost = abs(delta) * abs(exec_p - self._最新结算价)
+
+        self._账户权益 -= float(fee_cost + impact_cost)
+        self._统计.调仓次数 += 1
+        self._统计.成交额 += float(turnover)
+        self._统计.交易成本 += float(fee_cost + impact_cost)
+
+        self._更新持仓(delta_qty=delta, exec_price=exec_p)
+
+        # 3) 调仓后立刻检查爆仓
+        self._检查爆仓(self._最新结算价, self._最新时间_ms)
+
+    # =========================
+    # 回测辅助方法
+    # =========================
+
+    def 推进盘口快照结算(self, 快照: 盘口快照) -> None:
+        """
+        用盘口快照做一次结算（mark-to-market）
+        """
+        self._最新_bid1 = float(快照.买一价())
+        self._最新_ask1 = float(快照.卖一价())
+        self._最新时间_ms = int(快照.时间_ms)
+
+        mark = float(self._计算结算价(快照))
+        if mark <= 0.0:
+            return
+
+        if self._是否爆仓:
+            self._最新结算价 = mark
+            return
+
+        if self._上次结算价 > 0.0:
+            self._账户权益 += (mark - self._上次结算价) * self._持仓数量
+        self._上次结算价 = mark
+        self._最新结算价 = mark
+
+        self._检查爆仓(mark, self._最新时间_ms)
+
+    def 获取调仓统计(self) -> 调仓统计:
+        return self._统计
+
+    @property
+    def 是否爆仓(self) -> bool:
+        return bool(self._是否爆仓)
+
+    @property
+    def 爆仓时间_ms(self) -> int | None:
+        return self._爆仓时间_ms
+
+    @property
+    def 爆仓价格(self) -> float | None:
+        return self._爆仓价格
+
+    # =========================
+    # 内部工具
+    # =========================
+
+    def _计算结算价(self, 快照: 盘口快照) -> float:
+        if self._结算价模式 == "wmp":
+            return float(快照.计算加权中间价())
+        return float(快照.计算中间价())
+
+    def _计算执行价(self, *, delta_qty: float) -> float:
+        if delta_qty > 0:
+            base = self._最新_ask1 if self._最新_ask1 > 0.0 else self._最新结算价
+            return float(base * (1.0 + self._滑点率))
+        base = self._最新_bid1 if self._最新_bid1 > 0.0 else self._最新结算价
+        return float(base * (1.0 - self._滑点率))
+
+    def _按步进截断(self, raw_qty: float) -> float:
+        step = self._数量步进
+        lots = float(np.floor(abs(raw_qty) / step))
+        return float(np.sign(raw_qty) * lots * step)
+
+    def _归一化目标仓位(self, 目标: 目标仓位) -> 目标仓位:
+        方向 = 目标.方向
+        if 方向 not in (仓位方向.多, 仓位方向.空, 仓位方向.空仓):
+            方向 = 仓位方向.空仓
+        名义杠杆 = float(目标.名义杠杆)
+        if 名义杠杆 < 0:
+            名义杠杆 = 0.0
+        return 目标仓位(交易对=self._交易对, 方向=方向, 名义杠杆=名义杠杆)
+
+    def _更新持仓(self, *, delta_qty: float, exec_price: float) -> None:
+        new_qty = self._持仓数量 + float(delta_qty)
+        if abs(new_qty) <= 1e-12:
+            self._持仓数量 = 0.0
+            self._持仓均价 = 0.0
+            return
+
+        if abs(self._持仓数量) <= 1e-12:
+            self._持仓均价 = float(exec_price)
+            self._持仓数量 = float(new_qty)
+            return
+
+        prev_sign = 1.0 if self._持仓数量 > 0 else -1.0
+        new_sign = 1.0 if new_qty > 0 else -1.0
+        if prev_sign != new_sign:
+            self._持仓均价 = float(exec_price)
+            self._持仓数量 = float(new_qty)
+            return
+
         prev_val = abs(self._持仓数量) * float(self._持仓均价)
         delta_val = abs(delta_qty) * float(exec_price)
         total_qty = abs(new_qty)
