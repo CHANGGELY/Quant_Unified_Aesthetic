@@ -1,9 +1,12 @@
 import os
 import sys
 import logging
-from pathlib import Path
-from dotenv import load_dotenv
 import ccxt
+
+try:
+    from common_core.utils.env_kit import 加载_env文件
+except Exception:  # pragma: no cover
+    加载_env文件 = None
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -11,14 +14,11 @@ logger = logging.getLogger(__name__)
 
 def test_api():
     # 1. 加载环境变量
-    current_dir = Path(__file__).parent
-    env_path = current_dir / '.env'
-    
-    if not env_path.exists():
-        logger.error(f"❌ 未找到配置文件: {env_path}")
-        return
-        
-    load_dotenv(dotenv_path=env_path)
+    已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else []
+    if 已加载_env路径列表:
+        logger.info("✅ 已加载环境变量文件: %s", " , ".join(str(p) for p in 已加载_env路径列表))
+    else:
+        logger.warning("⚠️ 未找到任何 .env 文件：将只能读取系统环境变量（export 的那种）")
     
     api_key = os.getenv("BINANCE_API_KEY")
     secret_key = os.getenv("BINANCE_SECRET_KEY")

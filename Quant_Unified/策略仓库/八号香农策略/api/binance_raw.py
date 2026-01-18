@@ -16,8 +16,6 @@ import requests
 import logging
 import threading
 from urllib.parse import urlencode
-from dotenv import load_dotenv
-from pathlib import Path
 from decimal import Decimal, ROUND_DOWN
 import pandas as pd
 
@@ -30,41 +28,7 @@ try:
 except Exception:  # pragma: no cover
     加载_env文件 = None
 
-
-def _加载环境变量文件() -> list[Path]:
-    """
-    加载 .env（兼容你的项目结构）
-
-    你现在的 Key 放在 `Quant_Unified/.env`，但这个模块在 `策略仓库/.../api/` 目录下。
-    如果只读“策略目录/.env”，就会出现“明明有 Key 但程序读不到”的错觉。
-
-    规则（不覆盖系统环境变量）：
-    1) 优先加载：策略目录的 `.env`（如果你未来想给某个策略单独配 Key）
-    2) 再向上查找：最近的 `.env`（通常就是 `Quant_Unified/.env`）
-    """
-    当前目录 = Path(__file__).resolve().parent
-    策略目录 = 当前目录.parent
-
-    候选路径: list[Path] = []
-
-    策略env = 策略目录 / ".env"
-    if 策略env.is_file():
-        候选路径.append(策略env)
-
-    # 向上查找最近的 .env（作为“全局兜底配置”）
-    for 上级目录 in 策略目录.parents:
-        上级env = 上级目录 / ".env"
-        if 上级env.is_file() and 上级env not in 候选路径:
-            候选路径.append(上级env)
-            break
-
-    for 路径 in 候选路径:
-        load_dotenv(dotenv_path=路径, override=False)
-
-    return 候选路径
-
-
-已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else _加载环境变量文件()
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else []
 
 logger = logging.getLogger(__name__)
 if 已加载_env路径列表:
