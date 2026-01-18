@@ -18,7 +18,8 @@ _EXTRA = [
     os.path.join(_ROOT, '基础库'),
     os.path.join(_ROOT, '服务'),
     os.path.join(_ROOT, '策略仓库'),
-    os.path.join(_ROOT, '4 号做市策略'),
+    # 目录名包含空格/数字，无法作为“标准包名”导入；把目录本身加入 sys.path 便于脚本化导入
+    os.path.join(_ROOT, '策略仓库', '4 号做市策略'),
     os.path.join(_ROOT, '应用'),
     os.path.join(_ROOT, '应用', 'qronos'),
 ]
