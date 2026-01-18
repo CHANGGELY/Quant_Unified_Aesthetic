@@ -52,19 +52,14 @@ from 策略仓库.八号香农策略.program.strategy_brain import 八号香农�
 from 基础库.common_core.strategy import K线, 账户状态, 订单方向
 
 
-class Test八号香农CPRP挂单一致性(unittest.TestCase):
-    def test_CPRP挂单与数学内核一致(self):
-        数据文件 = Path(getattr(cfg, "data_file", ""))
-        self.assertTrue(数据文件.exists(), f"❌ 找不到真实数据文件: {数据文件}")
-
-        vol_short = int(getattr(cfg, "vol_short_window", 60))
-        vol_long = int(getattr(cfg, "vol_long_window", 1440))
-        预热条数 = int(max(vol_short, vol_long) + 10)
-        测试额外条数 = 60
-        总条数 = 预热条数 + 测试额外条数
-
+def _读取真实OHLC样本(*, 总条数: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    优先读取本机完整 H5；若 CI 环境没有大文件，则回退到仓库内的“真实数据样本 .npz”。
+    """
+    数据文件 = Path(getattr(cfg, "data_file", "") or "")
+    if 数据文件.exists():
         import h5py
-        import hdf5plugin  # noqa: F401  # 自动注册 BLOSC 等压缩插件
+        import hdf5plugin  # noqa: F401
 
         with h5py.File(str(数据文件), "r") as f:
             table = f["klines"]["table"]
@@ -74,6 +69,29 @@ class Test八号香农CPRP挂单一致性(unittest.TestCase):
         高 = data["high"].astype(np.float64)
         低 = data["low"].astype(np.float64)
         收 = data["close"].astype(np.float64)
+        return 开, 高, 低, 收
+
+    样本文件 = Path(__file__).resolve().parent / "真实数据样本" / "ETHUSDT_1m_2021-05-17_to_2021-05-23.npz"
+    if not 样本文件.exists():
+        raise FileNotFoundError(f"❌ 找不到真实数据样本: {样本文件}")
+
+    npz = np.load(str(样本文件))
+    开 = npz["open"][:总条数].astype(np.float64)
+    高 = npz["high"][:总条数].astype(np.float64)
+    低 = npz["low"][:总条数].astype(np.float64)
+    收 = npz["close"][:总条数].astype(np.float64)
+    return 开, 高, 低, 收
+
+
+class Test八号香农CPRP挂单一致性(unittest.TestCase):
+    def test_CPRP挂单与数学内核一致(self):
+        vol_short = int(getattr(cfg, "vol_short_window", 60))
+        vol_long = int(getattr(cfg, "vol_long_window", 1440))
+        预热条数 = int(max(vol_short, vol_long) + 10)
+        测试额外条数 = 60
+        总条数 = 预热条数 + 测试额外条数
+
+        开, 高, 低, 收 = _读取真实OHLC样本(总条数=总条数)
 
         # ====== 初始化：策略脑子 + 旧 CPRP 引擎 ======
         策略 = 八号香农策略脑子(cfg)
@@ -170,4 +188,3 @@ class Test八号香农CPRP挂单一致性(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
