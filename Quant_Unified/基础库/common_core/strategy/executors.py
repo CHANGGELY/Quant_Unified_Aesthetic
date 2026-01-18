@@ -391,21 +391,30 @@ class K线撮合执行器(执行器接口):
         if 成交量 <= 0.0:
             return None
 
+        pos = float(self._持仓数量)
+        avg = float(self._持仓均价)
+
         # 费用（默认 maker=0）
+        # reduce_only：只允许减仓，不允许反手开新仓
+        # 注意：当订单数量大于当前持仓时，交易所通常会“最多成交到 0”，多出来的部分会被拒绝/取消。
+        #       所以在回测里，我们也把实际成交量裁切到可减仓范围内，避免“成交量虚报、手续费多扣”的问题。
+        if bool(订单.只减仓):
+            if 订单.方向 == 订单方向.买:
+                if pos >= 0.0:
+                    return None
+                成交量 = min(成交量, abs(pos))
+            else:
+                if pos <= 0.0:
+                    return None
+                成交量 = min(成交量, pos)
+
+            if 成交量 <= 0.0:
+                return None
+
         成交额 = 成交价 * 成交量
         手续费 = abs(成交额) * self._maker_fee
         if 手续费 > 0:
             self._钱包余额 -= 手续费
-
-        pos = float(self._持仓数量)
-        avg = float(self._持仓均价)
-
-        # reduce_only：只允许减仓，不允许反手开新仓
-        if bool(订单.只减仓):
-            if 订单.方向 == 订单方向.买 and pos >= 0.0:
-                return None
-            if 订单.方向 == 订单方向.卖 and pos <= 0.0:
-                return None
 
         if 订单.方向 == 订单方向.买:
             if pos >= 0.0:
@@ -821,8 +830,24 @@ class K线对冲撮合执行器(执行器接口):
         if 仓位 not in (仓位方向.多, 仓位方向.空):
             raise ValueError(f"非法仓位方向: {仓位}")
 
+        # 对冲模式下：同一张单只影响“自己的那条仓位边”（LONG 或 SHORT），不会反手开另一边。
+        # 所以当你下“平仓单”但数量超过现有持仓时，真实交易所最多只会成交到 0。
+        # 我们在回测里也用同样口径：把实际成交量裁切到当前可平的数量，避免成交量/手续费被高估。
+        实际成交量 = float(成交量)
+        if 仓位 == 仓位方向.多 and 订单.方向 == 订单方向.卖:
+            if self._多头数量 <= 0.0:
+                return None
+            实际成交量 = min(实际成交量, float(self._多头数量))
+        if 仓位 == 仓位方向.空 and 订单.方向 == 订单方向.买:
+            if self._空头数量 <= 0.0:
+                return None
+            实际成交量 = min(实际成交量, float(self._空头数量))
+
+        if 实际成交量 <= 0.0:
+            return None
+
         # 手续费（默认 maker=0）
-        成交额 = 成交价 * 成交量
+        成交额 = 成交价 * 实际成交量
         fee = abs(成交额) * self._maker_fee
         if fee > 0:
             self._钱包余额 -= fee
@@ -832,18 +857,16 @@ class K线对冲撮合执行器(执行器接口):
         if 仓位 == 仓位方向.多:
             # 多头：BUY 增加，SELL 减少
             if 订单.方向 == 订单方向.买:
-                new_qty = self._多头数量 + 成交量
+                new_qty = self._多头数量 + 实际成交量
                 if self._多头数量 <= 0.0:
                     self._多头均价 = 成交价
                     self._多头数量 = new_qty
                 else:
-                    self._多头均价 = (self._多头数量 * self._多头均价 + 成交量 * 成交价) / new_qty
+                    self._多头均价 = (self._多头数量 * self._多头均价 + 实际成交量 * 成交价) / new_qty
                     self._多头数量 = new_qty
             else:
-                if self._多头数量 <= 0.0:
-                    return None
-                close_qty = min(成交量, self._多头数量)
-                已实现 = close_qty * (成交价 - self._多头均价)
+                close_qty = float(实际成交量)
+                已实现 = close_qty * (成交价 - float(self._多头均价))
                 self._钱包余额 += 已实现
                 self._多头数量 -= close_qty
                 if self._多头数量 <= 1e-12:
@@ -853,18 +876,16 @@ class K线对冲撮合执行器(执行器接口):
         else:
             # 空头：SELL 增加，BUY 减少
             if 订单.方向 == 订单方向.卖:
-                new_qty = self._空头数量 + 成交量
+                new_qty = self._空头数量 + 实际成交量
                 if self._空头数量 <= 0.0:
                     self._空头均价 = 成交价
                     self._空头数量 = new_qty
                 else:
-                    self._空头均价 = (self._空头数量 * self._空头均价 + 成交量 * 成交价) / new_qty
+                    self._空头均价 = (self._空头数量 * self._空头均价 + 实际成交量 * 成交价) / new_qty
                     self._空头数量 = new_qty
             else:
-                if self._空头数量 <= 0.0:
-                    return None
-                close_qty = min(成交量, self._空头数量)
-                已实现 = close_qty * (self._空头均价 - 成交价)
+                close_qty = float(实际成交量)
+                已实现 = close_qty * (float(self._空头均价) - 成交价)
                 self._钱包余额 += 已实现
                 self._空头数量 -= close_qty
                 if self._空头数量 <= 1e-12:
@@ -882,7 +903,7 @@ class K线对冲撮合执行器(执行器接口):
             交易对=self._交易对,
             成交时间_ms=int(时间戳),
             成交价=float(成交价),
-            成交量=float(成交量),
+            成交量=float(实际成交量),
             方向=订单.方向,
             是否Maker=True,
             仓位方向=仓位,
