@@ -29,6 +29,7 @@ miniforge/
 cache/
 
 # 大体积目录（与 Zeabur 实盘部署无关）
+数据/历史行情中心/
 models/
 nautilus_trader/
 nautilus_market_maker/

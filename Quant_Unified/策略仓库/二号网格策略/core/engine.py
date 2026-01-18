@@ -6,6 +6,7 @@ from pytz import timezone
 import yaml
 
 from 策略仓库.二号网格策略.api.binance import fetch_candle_data
+from 基础库.common_core.data_center import 获取历史行情子目录
 
 class BacktestEngine:
     def __init__(self, config_path="config.yaml"):
@@ -27,6 +28,15 @@ class BacktestEngine:
         """
         local_path = self.config['backtest'].get('local_data_path')
         data_center_dir = self.config['backtest'].get('data_center_dir')
+        if not data_center_dir:
+            data_center_dir = str(获取历史行情子目录("分钟K线"))
+        else:
+            # 如果配置了但路径不存在，回退到统一历史行情中心
+            try:
+                if not Path(str(data_center_dir)).exists():
+                    data_center_dir = str(获取历史行情子目录("分钟K线"))
+            except Exception:
+                data_center_dir = str(获取历史行情子目录("分钟K线"))
         symbol = self.config['backtest']['symbol']
         start_time_str = self.config['backtest']['start_time']
         end_time_str = self.config['backtest']['end_time']

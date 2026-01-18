@@ -9,6 +9,8 @@ from huggingface_hub import HfApi, create_repo
 from datetime import datetime
 import logging
 
+from 基础库.common_core.data_center import 获取历史行情子目录
+
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 # 数据集名称: 用户名/数据集名
 DATASET_REPO = "chenchuanshen/Quant_Market_Data"
 # 本地行情数据路径
-LOCAL_DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "行情数据_整理"
+LOCAL_DATA_DIR = 获取历史行情子目录("行情数据_整理")
 # ---------------------------------------------------------
 
 def sync_to_hf():

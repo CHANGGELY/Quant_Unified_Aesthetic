@@ -115,10 +115,10 @@ def _默认数据文件路径() -> str:
     except Exception:
         quant_root = Path(__file__).resolve().parents[2]  # Quant_Unified
         return str(
-            quant_root
-            / "策略仓库"
-            / "二号网格策略"
-            / "data_center"
+            quant_root.parent
+            / "数据"
+            / "历史行情中心"
+            / "分钟K线"
             / "ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
         )
 

@@ -10,6 +10,7 @@ from typing import Iterable, Literal, cast
 
 import pandas as pd
 
+from 基础库.common_core.data_center import 获取历史行情子目录
 
 # =================================================================
 # ⚙️ 快速配置区 (可以直接在这里修改参数后点运行)
@@ -30,10 +31,10 @@ import pandas as pd
 默认_FILL_DEPTH_GAP_MIN_MS = 60_000
 
 # 5. 路径配置 (通常不需要修改)
-默认_INPUT = str(Path(__file__).resolve().parents[2] / "data" / "行情数据")
-默认_OUTPUT = str(Path(__file__).resolve().parents[2] / "data" / "行情数据_整理")
+默认_INPUT = str(获取历史行情子目录("行情数据"))
+默认_OUTPUT = str(获取历史行情子目录("行情数据_整理"))
 # 默认备份目录：整理完成后，将原始碎片文件移动到这里 (相当于归档)，而不是直接删除
-默认_BACKUP_DIR = str(Path(__file__).resolve().parents[2] / "data" / "行情数据_备份")
+默认_BACKUP_DIR = str(获取历史行情子目录("行情数据_备份"))
 
 # 6. 其他高级设置
 默认_DTYPE = ""              # 只整理特定类型 (depth 或 trade)，留空则全部整理
