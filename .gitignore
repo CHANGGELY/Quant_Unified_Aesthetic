@@ -17,6 +17,12 @@ Quant_Unified/系统日志/
 *.gz
 cache/
 Quant_Unified/cache/
+Quant_Unified/zeabur_deploy_legacy/
+**/回测报告_*.html
+**/equity_curve_*.html
+**/equity_curve_*.png
+**/*.nbc
+**/*.nbi
 
 # IDE
 .vscode/

@@ -3,6 +3,7 @@ websockets
 supabase
 pyarrow
 gradio
+streamlit
 psutil
 python-dotenv
 pandas

@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+cprp.py - CPRP 再平衡挂单计算器
+
+这个文件是干嘛的？
+    CPRP 可以理解成“固定比例组合”：
+    - 你希望账户里“币的名义价值”和“空闲余额”长期维持在一个固定比例（默认 50:50）
+    - 当价格变化导致比例偏离时，就通过挂买单/卖单把比例拉回去
+
+这个模块只负责“算出理想挂单长什么样”，至于怎么下单、怎么撤单、怎么对接交易所，
+由 real_trading.py 负责。
+"""
 import logging
 
 logger = logging.getLogger(__name__)
@@ -28,8 +39,8 @@ class CPRPEngine:
         buy_orders = []
         sell_orders = []
         
-        # 硬性最小下单数量 (固定 0.007 ETH)
-        min_qty = 0.007
+        # 最小下单数量（默认 0.007 ETH；可在 config_live.py / config_backtest.py 覆盖）
+        min_qty = float(getattr(self.config, "min_qty", 0.007))
         
         # 从配置读取层数，默认 3 层
         grid_layers = getattr(self.config, 'grid_layers', 3)

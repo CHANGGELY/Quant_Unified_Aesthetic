@@ -41,7 +41,7 @@ strategy_config = Config(
     equity_asset="USDC",
     # 初始本金 (用于 ROI 统计；单位需与 equity_asset 一致)
     initial_capital=5000.0,
-    USE_REAL_TRADING=False,     # 环境配置: False=测试网 (默认), True=实盘 (Risk!)
+    USE_REAL_TRADING=os.getenv("USE_REAL_TRADING", "").lower() in ("true", "1", "yes"),     # 环境配置: False=测试网 (默认), True=实盘 (Risk!)
     # ====== 杠杆（合约保证金口径，非借贷）======
     nominal_leverage=NOMINAL_LEVERAGE,            # 名义杠杆 W（策略层）
     position_leverage=POSITION_LEVERAGE,          # 逐笔杠杆 Z（交易所 leverage）
@@ -71,6 +71,8 @@ strategy_config = Config(
     min_grid_width_bps=1.0,     # 最小网格宽度 (基点, 1bp=0.01%) - 5bps = 0.05%
                                 # 假设 ETH=2000, 0.05% = 1U，大于 Spread
     grid_layers=3,              # 网格层数 (多层阶梯挂单) - 建议 3-5 层以捕捉插针
+    force_order_band=0.1,       # 强制双边挂单缓冲带（避免只挂一边导致“断流动性”）
+    min_qty=0.007,              # 最小下单数量（ETH，CPRP 算子里会用；与交易对精度/最小名义也要匹配）
     hedge_mode=False,           # 持仓模式: False=单向持仓, True=双向持仓 (需要账户设置匹配)
     post_only=False,            # 只做Maker模式: False=普通限价单(可能以Taker成交), True=只做Maker(越过盘口会拒单)
     

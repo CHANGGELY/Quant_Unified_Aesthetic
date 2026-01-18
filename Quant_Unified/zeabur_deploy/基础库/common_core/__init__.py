@@ -1,3 +1,0 @@
-"""
-Quant Unified Common Core
-"""

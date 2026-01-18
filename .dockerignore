@@ -1,0 +1,43 @@
+# 减少 Docker 构建“上传体积”的忽略规则
+#
+# 类比：
+#   Docker build 就像“把一整个文件夹打包寄到服务器去做饭”。
+#   .dockerignore 就是“别把没用的大箱子也一起寄过去”，能显著加快上传/构建速度。
+
+# Git / 系统杂物
+.git
+.gitignore
+.gitattributes
+.DS_Store
+
+# Python 缓存/编译产物
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.so
+**/*.dylib
+**/*.nbc
+**/*.nbi
+**/.pytest_cache/
+**/.mypy_cache/
+
+# 本地环境/依赖缓存
+venv/
+.venv/
+miniforge/
+cache/
+
+# 大体积目录（与 Zeabur 实盘部署无关）
+models/
+nautilus_trader/
+nautilus_market_maker/
+select-coin-25年终版/
+图片上下文/
+Quant_Unified/zeabur_deploy_legacy/
+
+# 常见回测产物（图片/HTML 报告）
+**/回测报告_*.html
+**/equity_curve_*.html
+**/equity_curve_*.png
+**/*.png

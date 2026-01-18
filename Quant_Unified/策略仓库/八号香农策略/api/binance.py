@@ -10,20 +10,68 @@ import threading
 import random
 
 # 加载环境变量
-# 优先加载策略目录下的 .env 文件
-current_dir = Path(__file__).parent
-strategy_dir = current_dir.parent
-env_path = strategy_dir / '.env'
-load_dotenv(dotenv_path=env_path)
+def _加载环境变量文件() -> list[Path]:
+    """
+    加载 .env（兼容你的项目结构）
+
+    你把 Key 放在 `Quant_Unified/.env`，但这个模块位于更深的 `策略仓库/.../api/`。
+    如果只加载“策略目录/.env”，就会读不到 Key。
+
+    规则（不覆盖系统环境变量）：
+    1) 优先加载：策略目录 `.env`
+    2) 再向上加载：最近的 `.env`（通常是 `Quant_Unified/.env`）
+    """
+    当前目录 = Path(__file__).resolve().parent
+    策略目录 = 当前目录.parent
+
+    候选路径: list[Path] = []
+
+    策略env = 策略目录 / ".env"
+    if 策略env.is_file():
+        候选路径.append(策略env)
+
+    for 上级目录 in 策略目录.parents:
+        上级env = 上级目录 / ".env"
+        if 上级env.is_file() and 上级env not in 候选路径:
+            候选路径.append(上级env)
+            break
+
+    for 路径 in 候选路径:
+        load_dotenv(dotenv_path=路径, override=False)
+
+    return 候选路径
+
+
+已加载_env路径列表 = _加载环境变量文件()
 
 logger = logging.getLogger(__name__)
+if 已加载_env路径列表:
+    logger.info("✅ 已加载环境变量文件: %s", " , ".join(str(p) for p in 已加载_env路径列表))
+else:
+    logger.warning("⚠️ 未找到任何 .env 文件：将只能读取系统环境变量（export 的那种）")
 
-API_KEY = os.getenv("BINANCE_API_KEY")
-SECRET_KEY = os.getenv("BINANCE_SECRET_KEY")
+# 运行模式（与 binance_raw.py 保持一致）
+_is_real_trading = os.getenv("USE_REAL_TRADING", "").lower() in ("true", "1", "yes")
+_is_testnet_env = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+
+if _is_real_trading:
+    USE_TESTNET = False
+elif _is_testnet_env:
+    USE_TESTNET = True
+else:
+    USE_TESTNET = True  # 默认安全模式：测试网
+
+# 根据模式选择 Key（优先使用 TESTNET_/REAL_，再回退兼容旧名 BINANCE_）
+if USE_TESTNET:
+    API_KEY = os.getenv("TESTNET_API_KEY") or os.getenv("BINANCE_API_KEY")
+    SECRET_KEY = os.getenv("TESTNET_SECRET_KEY") or os.getenv("BINANCE_SECRET_KEY")
+else:
+    API_KEY = os.getenv("REAL_API_KEY") or os.getenv("BINANCE_API_KEY")
+    SECRET_KEY = os.getenv("REAL_SECRET_KEY") or os.getenv("BINANCE_SECRET_KEY")
+
 PROXY = os.getenv("BINANCE_PROXY")
 ACCOUNT_TYPE = os.getenv("BINANCE_ACCOUNT_TYPE", "normal").lower()
 API_MAX_QPS = float(os.getenv("BINANCE_API_MAX_QPS", "1"))
-USE_TESTNET = os.getenv("BINANCE_TESTNET", "false").lower() == "true"  # 新增：测试网开关
 _API_LOCK = threading.Lock()
 _LAST_API_TS = 0.0
 
