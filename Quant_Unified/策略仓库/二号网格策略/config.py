@@ -44,6 +44,8 @@ class Config:
 
             # 对冲督导员 (Supervisor) 参数
             'hedge_diff_threshold': 0.2,       # Delta 失衡阈值 (20%)，即 |L-S|/S > 0.2 时触发平衡
+            'auto_build_position': False,      # 是否允许自动构建底仓（用于“趋势卖飞”/对冲补仓）
+            'min_hedge_ratio': 0.1,            # 最小对冲比例（低于该比例会触发底仓重置/补仓逻辑）
             'target_hedge_ratio': 0.4,        # 补仓目标对冲比例 (40%)
             'supervisor_check_interval': 30,  # 督导员巡检间隔 (秒)
             
@@ -63,9 +65,11 @@ class Config:
             setattr(self, k, v)
             
         # 再应用传入的参数覆盖默认值
+        # 说明：这里选择“接收未知字段”而不是静默忽略。
+        # 原因：实盘/回测会不断增加新参数，如果这里忽略了，就会出现：
+        #   你以为配置生效了，但其实根本没被写进对象里（最难排查的那种 bug）。
         for k, v in kwargs.items():
-            if hasattr(self, k) or k in defaults:
-                setattr(self, k, v)
+            setattr(self, k, v)
 
         if not getattr(self, 'run_id', None):
             self.run_id = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
@@ -119,32 +123,5 @@ class Config:
         return safe.strip('_')
 
     def to_dict(self):
-        return {
-            'symbol': self.symbol,
-            'candle_period': self.candle_period,
-            'money': self.money,
-            'leverage': self.leverage,
-            'interval_mode': self.interval_mode,
-            'direction_mode': self.direction_mode,
-            'capital_ratio': self.capital_ratio,
-            'capital_weight': self.capital_weight,
-            'enabled': self.enabled,
-            'enable_upward_shift': self.enable_upward_shift,
-            'enable_downward_shift': self.enable_downward_shift,
-            'stop_up_price': self.stop_up_price,
-            'stop_down_price': self.stop_down_price,
-            'num_steps': self.num_steps,
-            'min_price': self.min_price,
-            'max_price': self.max_price,
-            'price_range': self.price_range,
-            'enable_compound': self.enable_compound,
-            'orders_per_side': self.orders_per_side,
-            'post_only': self.post_only,
-            'post_only_tick_offset_buy': self.post_only_tick_offset_buy,
-            'post_only_tick_offset_sell': self.post_only_tick_offset_sell,
-            'post_only_reject_retry_limit': self.post_only_reject_retry_limit,
-            'tick_size': self.tick_size,
-            'qty_precision': self.qty_precision,
-            'max_position_ratio': self.max_position_ratio,
-            'max_position_value': self.max_position_value
-        }
+        # 返回完整字典（更易扩展，也避免“新增字段忘记同步到 to_dict”导致参数失效）
+        return dict(self.__dict__)
