@@ -2,6 +2,7 @@
 Quant Unified 量化交易系统
 config.py
 """
+import os
 from pathlib import Path
 
 from core.utils.path_kit import get_folder_path  # 西蒙斯提供的自动获取绝对路径的函数，若存储目录不存在则自动创建
@@ -13,12 +14,43 @@ from core.utils.path_kit import get_folder_path  # 西蒙斯提供的自动获�
 start_date = '2021-01-01'  # 回测开始时间
 end_date = '2025-11-21'  # 回测结束时间
 # ** 数据配置 **
-# 现货数据路径
-# spot_path = r'C:\data-center-pro\coin-binance-candle-csv-1h'
-spot_path = Path(__file__).parent / 'data' / 'spot'
-# 合约数据
-# swap_path = r'C:\data-center-pro\coin-binance-swap-candle-csv-1h'
-swap_path = Path(__file__).parent / 'data' / 'swap'
+# 原始行情数据（统一入口：仓库根目录 `数据/历史行情中心/`）
+# 说明：
+#   以前这个策略把原始 CSV 数据放在策略目录 `data/spot`、`data/swap` 下。
+#   这样会导致：每个策略都“自己带一份大数据”，目录膨胀、重复占空间、也不利于部署。
+#   现在统一改为：所有“原始历史行情”都放到仓库根目录的 `数据/历史行情中心/` 里。
+#
+# 目录约定：
+#   数据/历史行情中心/小时K线/现货/    (币安现货 1h CSV)
+#   数据/历史行情中心/小时K线/合约/    (币安合约 1h CSV)
+#
+# 注意：
+#   这里仅设置“原始数据入口路径”。策略自己产生的缓存/回测结果仍放在项目的 data/ 下（由 path_kit 管理）。
+def _定位仓库根目录() -> Path:
+    """
+    通过当前文件位置，向上找到仓库根目录（Quant_Unified 的上一层）。
+
+    这样做的好处：
+        - 不依赖 sys.path 是否已正确配置
+        - 任何脚本单独运行时也能找到“历史行情中心”
+    """
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        if parent.name == "Quant_Unified":
+            return parent.parent
+    # 兜底：按当前目录结构硬走（未来结构变化也不至于立刻崩）
+    return p.parents[4]
+
+
+_自定义历史行情中心 = os.getenv("QUANT_HIST_DATA_DIR", "").strip() or os.getenv("QUANT_H5_DATA_DIR", "").strip()
+if _自定义历史行情中心:
+    _历史行情中心 = Path(_自定义历史行情中心).expanduser().resolve()
+else:
+    _历史行情中心 = _定位仓库根目录() / "数据" / "历史行情中心"
+
+_小时K线根目录 = _历史行情中心 / "小时K线"
+spot_path = _小时K线根目录 / "现货"
+swap_path = _小时K线根目录 / "合约"
 # ** 策略配置 **
 backtest_name = '2号后置过滤'  # 回测组名称。可以自己任意取。
 strategy = {
@@ -74,7 +106,8 @@ backtest_path = Path(get_folder_path('data', '回测结果'))
 # 稳定币信息，不参与交易的币种
 stable_symbol = ['BKRW', 'USDC', 'USDP', 'TUSD', 'BUSD', 'FDUSD', 'DAI', 'EUR', 'GBP', 'USBP', 'SUSD', 'PAXG', 'AEUR']
 
+# 只做提示，不在 import 阶段强行退出（真正跑回测时 step1_prepare_data 会做更严格的校验）
 if (not spot_path.exists()) or (not swap_path.exists()):
-    print('⚠️ 原始行情数据不存在，请检查文件夹路径')
-    print(f'当前现货路径：`{str(spot_path)}`', f'当前合约路径：`{str(swap_path)}`')
-    exit()
+    print("⚠️ 未找到原始小时K线目录（不会立刻退出）：")
+    print(f"   现货: {spot_path}")
+    print(f"   合约: {swap_path}")
