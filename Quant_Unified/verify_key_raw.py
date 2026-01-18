@@ -11,13 +11,24 @@ import hmac
 import hashlib
 import requests
 from urllib.parse import urlencode
-from dotenv import load_dotenv
+from pathlib import Path
 
-# 加载环境变量
-load_dotenv('策略仓库/八号香农策略/.env')
+try:
+    from common_core.utils.env_kit import 加载_env文件
+except Exception:  # pragma: no cover
+    加载_env文件 = None
+
+# 加载环境变量（.env 仅用于本地填充系统环境变量）
+策略目录 = Path(__file__).resolve().parent / "策略仓库" / "八号香农策略"
+已加载_env路径列表 = 加载_env文件(策略目录) if 加载_env文件 else []
 
 API_KEY = os.getenv("BINANCE_API_KEY")
 SECRET_KEY = os.getenv("BINANCE_SECRET_KEY")
+
+if 已加载_env路径列表:
+    print(f"✅ 已加载环境变量文件: {' , '.join(str(p) for p in 已加载_env路径列表)}")
+else:
+    print("⚠️ 未找到任何 .env 文件：将只能读取系统环境变量（export 的那种）")
 
 print(f"API Key: {API_KEY[:10]}...")
 print(f"Secret: {SECRET_KEY[:10]}...")

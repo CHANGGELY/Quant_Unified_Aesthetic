@@ -5,10 +5,17 @@ from supabase import create_client
 import time
 import os
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
+try:
+    from common_core.utils.env_kit import 加载_env文件
+except Exception:  # pragma: no cover
+    加载_env文件 = None
 
-# 加载本地 .env (如果有)
-load_dotenv()
+# 加载本地 .env (如果有，只用于填充系统环境变量)
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else []
+if 已加载_env路径列表:
+    print(f"✅ 已加载环境变量文件: {' , '.join(str(p) for p in 已加载_env路径列表)}")
+else:
+    print("⚠️ 未找到任何 .env 文件：将只能读取系统环境变量（export 的那种）")
 
 # ==========================================
 # 自动启动逻辑 (允许直接点击运行)

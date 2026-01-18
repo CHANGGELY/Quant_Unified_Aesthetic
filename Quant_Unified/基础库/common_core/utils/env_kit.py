@@ -16,6 +16,10 @@ env_kit.py - 统一的环境变量/.env 加载工具
     1) 优先加载：起点目录（通常是策略目录）的 `.env`
     2) 向上查找：最近的一个 `.env`（通常是 `Quant_Unified/.env`）
     3) 全程 override=False（系统环境变量优先）
+    
+重要约定（唯一入口）：
+    - 代码只读取“系统环境变量”
+    - `.env` 仅用于本地开发时，把内容自动写进系统环境变量
 
 术语解释：
     - override=False：意思是“如果系统里已经有同名环境变量，就不要用 .env 覆盖它”
@@ -83,4 +87,3 @@ def 读取布尔环境变量(变量名: str, 默认值: bool = False) -> bool:
         return bool(默认值)
     raw = raw.strip().lower()
     return raw in ("true", "1", "yes", "y", "on")
-

@@ -29,45 +29,13 @@ import argparse
 # 环境变量加载（解决“明明有 Key 但读不到”）
 # ============================================================
 # 你的 `.env` 在 `Quant_Unified/.env`，而这个脚本在更深的目录里。
-# 如果不主动加载，就只能读到“系统环境变量”(export 的那种)，导致 Key 为空。
-try:
-    from dotenv import load_dotenv
-except Exception:  # pragma: no cover
-    load_dotenv = None
-
-
-def _加载环境变量文件() -> list[Path]:
-    if load_dotenv is None:
-        return []
-
-    当前文件 = Path(__file__).resolve()
-    策略目录 = 当前文件.parent
-
-    候选路径: list[Path] = []
-
-    策略env = 策略目录 / ".env"
-    if 策略env.is_file():
-        候选路径.append(策略env)
-
-    # 向上查找最近的 .env（通常就是 Quant_Unified/.env）
-    for 上级目录 in 策略目录.parents:
-        上级env = 上级目录 / ".env"
-        if 上级env.is_file() and 上级env not in 候选路径:
-            候选路径.append(上级env)
-            break
-
-    for 路径 in 候选路径:
-        load_dotenv(dotenv_path=路径, override=False)
-
-    return 候选路径
-
-
+# 为了保证“唯一入口是系统环境变量”，这里仅做本地 .env 的自动填充。
 try:
     from common_core.utils.env_kit import 加载_env文件
 except Exception:  # pragma: no cover
     加载_env文件 = None
 
-已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else _加载环境变量文件()
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else []
 if 已加载_env路径列表:
     print(f"✅ 已加载环境变量文件: {' , '.join(str(p) for p in 已加载_env路径列表)}")
 else:

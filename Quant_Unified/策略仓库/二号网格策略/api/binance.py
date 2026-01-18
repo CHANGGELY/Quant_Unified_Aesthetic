@@ -3,20 +3,21 @@ import time
 import logging
 import uuid
 import ccxt
-from dotenv import load_dotenv
-from pathlib import Path
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
 import threading
 import random
 
-# 加载环境变量
-# 优先加载策略目录下的 .env 文件
-current_dir = Path(__file__).parent
-strategy_dir = current_dir.parent
-env_path = strategy_dir / '.env'
-load_dotenv(dotenv_path=env_path)
+try:
+    from common_core.utils.env_kit import 加载_env文件
+except Exception:  # pragma: no cover
+    加载_env文件 = None
 
 logger = logging.getLogger(__name__)
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else []
+if 已加载_env路径列表:
+    logger.info("✅ 已加载环境变量文件: %s", " , ".join(str(p) for p in 已加载_env路径列表))
+else:
+    logger.warning("⚠️ 未找到任何 .env 文件：将只能读取系统环境变量（export 的那种）")
 
 API_KEY = os.getenv("BINANCE_API_KEY")
 SECRET_KEY = os.getenv("BINANCE_SECRET_KEY")
