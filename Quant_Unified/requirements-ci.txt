@@ -1,0 +1,14 @@
+# CI 最小依赖集（只为跑测试）
+#
+# 为什么不直接用 requirements.txt？
+#   requirements.txt 更像“全家桶”，里面有很多部署/实验用的大依赖（比如 playwright）。
+#   CI 只需要跑单元测试，装太多会更慢、也更容易因为系统库缺失而失败。
+#
+# 这里列的是目前 CI 测试必需的最小集合：
+numpy
+pandas
+numba
+tqdm
+plotly
+h5py
+hdf5plugin

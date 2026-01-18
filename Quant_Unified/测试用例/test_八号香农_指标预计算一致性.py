@@ -51,18 +51,12 @@ from 策略仓库.八号香农策略 import config_backtest as cfg
 from 策略仓库.八号香农策略.program.leverage_model import resolve_leverage_spec
 
 
-class Test八号香农指标一致性(unittest.TestCase):
-    def test_预计算与增量输出一致(self):
-        数据文件 = Path(getattr(cfg, "data_file", ""))
-        self.assertTrue(数据文件.exists(), f"❌ 找不到真实数据文件: {数据文件}")
-
-        # 取一小段真实数据（仍然是“真实数据”，不是模拟数据）
-        vol_short = int(getattr(cfg, "vol_short_window", 60))
-        vol_long = int(getattr(cfg, "vol_long_window", 1440))
-        交易起始索引 = int(max(2, max(vol_short, vol_long) + 10))
-        交易段条数 = 2000
-        总条数 = 交易起始索引 + 交易段条数
-
+def _读取真实OHLC样本(*, 总条数: int) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    优先读取本机完整 H5；若 CI 环境没有大文件，则回退到仓库内的“真实数据样本 .npz”。
+    """
+    数据文件 = Path(getattr(cfg, "data_file", "") or "")
+    if 数据文件.exists():
         import h5py
         import hdf5plugin  # noqa: F401  # 自动注册 BLOSC 等压缩插件
 
@@ -74,6 +68,31 @@ class Test八号香农指标一致性(unittest.TestCase):
         高 = np.ascontiguousarray(data["high"].astype(np.float64))
         低 = np.ascontiguousarray(data["low"].astype(np.float64))
         收 = np.ascontiguousarray(data["close"].astype(np.float64))
+        return 开, 高, 低, 收
+
+    # CI/轻量环境回退：使用仓库内的真实行情切片（不是 Mock Data）
+    样本文件 = Path(__file__).resolve().parent / "真实数据样本" / "ETHUSDT_1m_2021-05-17_to_2021-05-23.npz"
+    if not 样本文件.exists():
+        raise FileNotFoundError(f"❌ 找不到真实数据样本: {样本文件}")
+
+    npz = np.load(str(样本文件))
+    开 = np.ascontiguousarray(npz["open"][:总条数].astype(np.float64))
+    高 = np.ascontiguousarray(npz["high"][:总条数].astype(np.float64))
+    低 = np.ascontiguousarray(npz["low"][:总条数].astype(np.float64))
+    收 = np.ascontiguousarray(npz["close"][:总条数].astype(np.float64))
+    return 开, 高, 低, 收
+
+
+class Test八号香农指标一致性(unittest.TestCase):
+    def test_预计算与增量输出一致(self):
+        # 取一小段真实数据（仍然是“真实数据”，不是模拟数据）
+        vol_short = int(getattr(cfg, "vol_short_window", 60))
+        vol_long = int(getattr(cfg, "vol_long_window", 1440))
+        交易起始索引 = int(max(2, max(vol_short, vol_long) + 10))
+        交易段条数 = 2000
+        总条数 = 交易起始索引 + 交易段条数
+
+        开, 高, 低, 收 = _读取真实OHLC样本(总条数=总条数)
 
         杠杆信息 = resolve_leverage_spec(
             cfg,
@@ -174,4 +193,3 @@ class Test八号香农指标一致性(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
