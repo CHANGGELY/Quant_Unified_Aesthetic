@@ -8,6 +8,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import sys
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -25,7 +26,17 @@ SLIPPAGE   = 0.0001
 INITIAL_CASH = 10000
 LEVERAGE   = 1.0
 
-DATA_PATH = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5')
+# 数据路径：用统一数据定位中心，避免把路径写死在某台电脑上
+当前文件 = Path(__file__).resolve()
+Quant_Unified根目录 = 当前文件.parents[3]
+if str(Quant_Unified根目录) not in sys.path:
+    sys.path.insert(0, str(Quant_Unified根目录))
+
+from 基础库.common_core.data_center import 生成分钟K线文件名, 获取分钟K线H5文件
+
+DATA_PATH = 获取分钟K线H5文件(
+    生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
+)
 # =========================================================
 
 def load_data(file_path, start, end):

@@ -1,48 +1,44 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+binance.py - 基于 CCXT 的币安客户端封装
+
+这个文件是干嘛的？
+    你可以把交易所 API 理解成“交易所提供的遥控器”：
+    - 你按下“下单/撤单/查余额”的按钮，交易所就会执行并返回结果
+
+本文件的定位：
+    - 使用 CCXT（CryptoCurrency eXchange Trading：加密货币交易所统一接口库）来简化交易所交互
+    - 统一加载 .env（避免“明明有 Key 但脚本读不到”）
+    - 统一区分测试网/实盘（默认更安全：测试网）
+
+注意：
+    8号香农策略的“关键交易逻辑”不应该写在这里；
+    这里更像“驱动/适配器”，负责把策略的意图变成交易所调用。
+"""
+
 import os
 import time
 import logging
 import uuid
 import ccxt
-from dotenv import load_dotenv
 from pathlib import Path
 from decimal import Decimal, ROUND_DOWN, ROUND_UP
 import threading
 import random
 
-# 加载环境变量
-def _加载环境变量文件() -> list[Path]:
-    """
-    加载 .env（兼容你的项目结构）
+try:
+    from common_core.utils.env_kit import 加载_env文件, 读取布尔环境变量
+except Exception:  # pragma: no cover
+    加载_env文件 = None
 
-    你把 Key 放在 `Quant_Unified/.env`，但这个模块位于更深的 `策略仓库/.../api/`。
-    如果只加载“策略目录/.env”，就会读不到 Key。
+    def 读取布尔环境变量(变量名: str, 默认值: bool = False) -> bool:  # type: ignore[misc]
+        raw = os.getenv(变量名)
+        if raw is None:
+            return 默认值
+        return raw.strip().lower() in ("true", "1", "yes", "y", "on")
 
-    规则（不覆盖系统环境变量）：
-    1) 优先加载：策略目录 `.env`
-    2) 再向上加载：最近的 `.env`（通常是 `Quant_Unified/.env`）
-    """
-    当前目录 = Path(__file__).resolve().parent
-    策略目录 = 当前目录.parent
-
-    候选路径: list[Path] = []
-
-    策略env = 策略目录 / ".env"
-    if 策略env.is_file():
-        候选路径.append(策略env)
-
-    for 上级目录 in 策略目录.parents:
-        上级env = 上级目录 / ".env"
-        if 上级env.is_file() and 上级env not in 候选路径:
-            候选路径.append(上级env)
-            break
-
-    for 路径 in 候选路径:
-        load_dotenv(dotenv_path=路径, override=False)
-
-    return 候选路径
-
-
-已加载_env路径列表 = _加载环境变量文件()
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else []
 
 logger = logging.getLogger(__name__)
 if 已加载_env路径列表:
@@ -51,8 +47,8 @@ else:
     logger.warning("⚠️ 未找到任何 .env 文件：将只能读取系统环境变量（export 的那种）")
 
 # 运行模式（与 binance_raw.py 保持一致）
-_is_real_trading = os.getenv("USE_REAL_TRADING", "").lower() in ("true", "1", "yes")
-_is_testnet_env = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+_is_real_trading = 读取布尔环境变量("USE_REAL_TRADING", False)
+_is_testnet_env = 读取布尔环境变量("BINANCE_TESTNET", False)
 
 if _is_real_trading:
     USE_TESTNET = False

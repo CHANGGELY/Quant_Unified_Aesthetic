@@ -25,6 +25,12 @@ import pandas as pd
 # 配置加载
 # ============================================================
 
+try:
+    from common_core.utils.env_kit import 加载_env文件
+except Exception:  # pragma: no cover
+    加载_env文件 = None
+
+
 def _加载环境变量文件() -> list[Path]:
     """
     加载 .env（兼容你的项目结构）
@@ -58,7 +64,7 @@ def _加载环境变量文件() -> list[Path]:
     return 候选路径
 
 
-已加载_env路径列表 = _加载环境变量文件()
+已加载_env路径列表 = 加载_env文件(__file__) if 加载_env文件 else _加载环境变量文件()
 
 logger = logging.getLogger(__name__)
 if 已加载_env路径列表:

@@ -1,3 +1,20 @@
+# -*- coding: utf-8 -*-
+"""
+七号 VWAP 策略（V7.3 布林带）- 启动回测
+
+这个文件是干嘛的？
+    用历史分钟 K 线（开/高/低/收）回测 V7.3 版本的 VWAP“轨道策略”（像布林带一样有上轨/下轨）。
+
+术语解释（用人话）：
+    - VWAP（Volume Weighted Average Price：成交量加权平均价）
+      类比：买得越多的成交价，对“平均价”的影响越大。
+    - 布林带（Bollinger Bands）：一条中轨 + 上下两条“波动范围轨道”，用来判断价格是否“偏离太多”。
+    - EMA（Exponential Moving Average：指数移动平均）：
+      类比：越新的数据权重越大，反应更快。
+    - SMA（Simple Moving Average：简单移动平均）：
+      类比：窗口里的每个数据权重一样，反应更慢但更平滑。
+"""
+
 import sys
 from pathlib import Path
 import warnings
@@ -31,7 +48,11 @@ INITIAL_CASH = 10000
 LEVERAGE   = 1.0
 
 # 自动处理数据路径
-DATA_PATH = PROJECT_ROOT / "策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5"
+from 基础库.common_core.data_center import 生成分钟K线文件名, 获取分钟K线H5文件
+
+DATA_PATH = 获取分钟K线H5文件(
+    生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
+)
 # =========================================================
 
 def load_data(file_path, start, end):

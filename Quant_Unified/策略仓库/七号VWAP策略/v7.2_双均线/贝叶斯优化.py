@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-VWAP_n 策略 - 贝叶斯优化版本 (Optuna)
-使用智能采样，快速在大参数区间内找到最优参数
+七号 VWAP 策略（v7.2 双均线）- 贝叶斯优化（Optuna）
+
+这个文件是干嘛的？
+    用“贝叶斯优化”自动帮你试参数（不用你手动一格一格遍历），找到表现更好的 N。
+
+术语解释（用人话）：
+    - VWAP（Volume Weighted Average Price：成交量加权平均价）
+      类比：菜市场的“平均价”不是简单平均，而是“买得越多的价格越重要”。
+    - Optuna：一个自动调参库，会根据历史试验结果更聪明地选下一个要试的参数。
+    - Calmar（卡玛比率）：年化收益 / 最大回撤。类比：同样赚钱，谁“跌得没那么吓人”谁更稳。
 """
 
 import pandas as pd
@@ -15,8 +23,18 @@ import optuna
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 warnings.filterwarnings('ignore')
 
-# 数据路径
-DATA_PATH = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/二号网格策略/data_center/ETHUSDT_1m_2019-11-01_to_2025-06-15_table.h5')
+# ====== 自动计算项目根目录（Quant_Unified）======
+当前文件 = Path(__file__).resolve()
+Quant_Unified根目录 = 当前文件.parents[3]
+if str(Quant_Unified根目录) not in sys.path:
+    sys.path.insert(0, str(Quant_Unified根目录))
+
+# 数据路径：统一走“数据中心”，避免把路径写死在某台电脑上
+from 基础库.common_core.data_center import 生成分钟K线文件名, 获取分钟K线H5文件
+
+DATA_PATH = 获取分钟K线H5文件(
+    生成分钟K线文件名("ETHUSDT", 开始日期="2019-11-01", 结束日期="2025-06-15", 带table后缀=True)
+)
 
 # 全局变量：缓存数据
 DF_CACHE = None
@@ -115,7 +133,7 @@ def objective(trial):
     return -calmar
 
 def main():
-    print("🔥 VWAP_n 智能优化启动 (贝叶斯优化)")
+    print("VWAP_n 智能优化启动（贝叶斯优化）")
     print("=" * 50)
     
     # 预加载数据
@@ -168,7 +186,10 @@ def main():
     print(trials_df[['params_n', 'calmar']].head(10).to_string(index=False))
     
     # 保存结果
-    output_file = Path('/Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/策略仓库/一号择时策略/select-coin-feat-long_short_compose/vwap_bayesian_results.csv')
+    from datetime import datetime
+
+    时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = Path(__file__).resolve().parent / f"贝叶斯优化结果_{时间戳}.csv"
     trials_df.to_csv(output_file, index=False)
     print(f"\n✅ 结果保存至: {output_file}")
 

@@ -20,14 +20,15 @@ PROJECT_ROOT = CURRENT_FILE.parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# 尝试导入回测模块
+# 导入回测配置 + 回测核心（用于复用同口径的波动率递推）
 try:
-    from 策略仓库.八号香农策略.backtest import 加载数据, 向量化计算波动率, 判定市场状态
     import 策略仓库.八号香农策略.config_backtest as cfg
+    from 策略仓库.八号香农策略 import backtest as 香农回测
 except ImportError:
+    # 兼容：直接在本目录运行
     sys.path.append(str(CURRENT_FILE.parent))
-    from backtest import 加载数据, 向量化计算波动率, 判定市场状态
     import config_backtest as cfg
+    import backtest as 香农回测
 
 
 # ============================================================
@@ -50,6 +51,37 @@ class 交易记录:
 # ============================================================
 # 缓存/辅助函数 (全部定义在 main() 之前)
 # ============================================================
+
+def 加载数据(path: str) -> pd.DataFrame:
+    """
+    读取真实 HDF5 分钟线数据（不是模拟数据）。
+
+    说明：
+        这里返回 DataFrame 是为了方便后续做“重采样”（把 1 分钟合成 5 分钟/1小时等）。
+    """
+    数据文件 = Path(str(path)).expanduser().resolve()
+    if not 数据文件.exists():
+        raise FileNotFoundError(f"❌ 找不到数据文件: {数据文件}")
+
+    import h5py
+    import hdf5plugin  # noqa: F401  # 注册压缩插件，否则可能读不出来
+
+    with h5py.File(str(数据文件), "r") as f:
+        dset = f["klines"]["table"]
+        data = dset[:]
+
+    df = pd.DataFrame(
+        {
+            "open": data["open"],
+            "high": data["high"],
+            "low": data["low"],
+            "close": data["close"],
+            "volume": data["volume"],
+            "candle_begin_time": pd.to_datetime(data["candle_begin_time_GMT8"], unit="ns"),
+        }
+    )
+    return df.sort_values("candle_begin_time").reset_index(drop=True)
+
 
 @st.cache_data(show_spinner=False)
 def 加载数据缓存(path: str) -> pd.DataFrame:
@@ -146,19 +178,47 @@ def 带日志回测(
     ewma_alpha: float = 0.05,
     spike阈值: float = 1.5,
     crush阈值: float = 0.5,
-    网格宽度基数: float = 0.002,
+    vol_k_factor: float = 1.0,
+    min_grid_width_bps: float = 1.0,
     spike宽度倍数: float = 1.5,
     crush宽度倍数: float = 0.8,
 ) -> Tuple[np.ndarray, List[交易记录], np.ndarray]:
     """带交易日志的香农回测"""
     n = len(价格序列)
-    
-    波动率结果 = 向量化计算波动率(价格序列, 短期窗口, 长期窗口, ewma_alpha)
-    市场状态 = 判定市场状态(波动率结果['波动率比率'], spike阈值, crush阈值)
-    
-    网格宽度 = np.full(n, 网格宽度基数)
-    网格宽度[市场状态 == 1] = 网格宽度基数 * spike宽度倍数
-    网格宽度[市场状态 == 2] = 网格宽度基数 * crush宽度倍数
+
+    if n < 3:
+        raise ValueError("数据太少：至少需要 3 根K线才能回测")
+
+    # 用“与实盘/执行级回测一致”的递推公式预计算波动率状态
+    # 注意：这里只做“宽度/状态”的同口径对齐；本查看器的成交逻辑仍是教学版（非执行级撮合）。
+    close_arr = np.ascontiguousarray(价格序列.astype(np.float64))
+    start = 2  # 保证 start-1 有上一根 close
+    ewma_vol_in, _, regime_in = 香农回测._预计算_波动率状态序列(
+        close_arr,
+        start,
+        int(短期窗口),
+        int(长期窗口),
+        float(ewma_alpha),
+        float(spike阈值),
+        float(crush阈值),
+    )
+
+    min_width = float(min_grid_width_bps) / 10000.0
+    if min_width <= 0:
+        raise ValueError("min_grid_width_bps 必须 > 0")
+
+    市场状态 = np.zeros(n, dtype=np.int8)
+    网格宽度 = np.full(n, min_width, dtype=np.float64)
+
+    mult = np.ones_like(regime_in, dtype=np.float64)
+    mult[regime_in == 1] = float(spike宽度倍数)
+    mult[regime_in == 2] = float(crush宽度倍数)
+
+    width_in = ewma_vol_in * float(vol_k_factor) * mult
+    width_in = np.maximum(width_in, min_width)
+
+    市场状态[start:] = regime_in.astype(np.int8)
+    网格宽度[start:] = width_in
     
     # 交易所精度设置 (ETHUSDT)
     ETH精度 = 3  # 交易所支持的 ETH 数量精度 (0.001)
@@ -251,13 +311,60 @@ def main():
     with st.sidebar:
         st.header("⚙️ 核心参数")
         with st.expander("基础配置", expanded=True):
-            目标比例 = st.slider("目标持仓比例", 0.1, 0.9, 0.5, 0.05)
-            网格宽度 = st.number_input("网格宽度基数", 0.0001, 0.05, cfg.grid_width_base, 0.0001, format="%.4f")
-            初始资金 = st.number_input("初始资金 (USDC)", 100, 1000000, 10000, 1000)
+            目标比例 = st.slider("目标持仓比例", 0.1, 0.9, float(getattr(cfg, "target_ratio", 0.5)), 0.05)
+            初始资金 = st.number_input(
+                "初始资金 (USDC)",
+                1.0,
+                1_000_000.0,
+                float(getattr(cfg, "initial_capital", 1000.0)),
+                10.0,
+            )
+
+        with st.expander("网格宽度（同口径）", expanded=False):
+            vol_k_factor = st.number_input(
+                "vol_k_factor（K系数）",
+                0.1,
+                5.0,
+                float(getattr(cfg, "vol_k_factor", 1.0)),
+                0.05,
+                format="%.2f",
+            )
+            min_grid_width_bps = st.number_input(
+                "min_grid_width_bps（最小宽度，bp=0.01%）",
+                0.1,
+                50.0,
+                float(getattr(cfg, "min_grid_width_bps", 1.0)),
+                0.1,
+                format="%.1f",
+            )
+            spike_mult = st.number_input(
+                "Spike 宽度倍数",
+                0.5,
+                5.0,
+                float(getattr(cfg, "width_multiplier_spike", 1.5)),
+                0.1,
+                format="%.2f",
+            )
+            crush_mult = st.number_input(
+                "Crush 宽度倍数",
+                0.1,
+                2.0,
+                float(getattr(cfg, "width_multiplier_crush", 0.8)),
+                0.1,
+                format="%.2f",
+            )
 
         with st.expander("波动率模型", expanded=False):
             短期窗口 = st.number_input("短期波动率 (分)", 10, 500, cfg.vol_short_window)
             长期窗口 = st.number_input("长期波动率 (分)", 500, 10000, cfg.vol_long_window)
+            ewma_alpha = st.number_input(
+                "EWMA alpha（指数加权平滑系数）",
+                0.001,
+                1.0,
+                float(getattr(cfg, "vol_ewma_alpha", 0.05)),
+                0.005,
+                format="%.3f",
+            )
             spike_th = st.number_input("Spike 阈值", 1.0, 3.0, cfg.regime_spike_threshold, 0.1)
             crush_th = st.number_input("Crush 阈值", 0.1, 1.0, cfg.regime_crush_threshold, 0.1)
             
@@ -285,7 +392,13 @@ def main():
                 权益曲线, 交易日志, _ = 带日志回测(
                     价格序列=价格, 时间序列=时间, 初始资金=float(初始资金),
                     目标持仓比例=目标比例, 短期窗口=int(短期窗口), 长期窗口=int(长期窗口),
-                    网格宽度基数=网格宽度, spike阈值=spike_th, crush阈值=crush_th
+                    ewma_alpha=float(ewma_alpha),
+                    spike阈值=float(spike_th),
+                    crush阈值=float(crush_th),
+                    vol_k_factor=float(vol_k_factor),
+                    min_grid_width_bps=float(min_grid_width_bps),
+                    spike宽度倍数=float(spike_mult),
+                    crush宽度倍数=float(crush_mult),
                 )
                 
                 df['equity'] = 权益曲线

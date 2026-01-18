@@ -15,6 +15,8 @@ Quant_Unified/系统日志/
 *.log
 *.pkl
 *.gz
+*.h5
+*.hdf5
 cache/
 Quant_Unified/cache/
 Quant_Unified/zeabur_deploy_legacy/
