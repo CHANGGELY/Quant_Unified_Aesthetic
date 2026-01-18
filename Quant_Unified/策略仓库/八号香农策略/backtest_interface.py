@@ -145,6 +145,22 @@ def 运行回测(显示图表: bool = True, 限制条数: int | None = None) -> 
             for 成交 in 成交列表:
                 策略.在成交回报(成交)
 
+            if 执行器.是否爆仓:
+                logger.error(
+                    f"💀 触发爆仓 | time_ms={执行器.爆仓时间_ms} | price={执行器.爆仓价格} | index={idx}"
+                )
+                # 爆仓后：权益曲线剩余部分全部记为 0（更直观，也更符合“账户归零”的直觉）
+                for j in range(idx, len(df)):
+                    t = df["candle_begin_time"].iloc[j]
+                    px = float(df["close"].iloc[j])
+                    时间序列.append(t)
+                    价格序列.append(px)
+                    权益曲线.append(0.0)
+                    宽度曲线.append(0.0)
+                    状态曲线.append("LIQUIDATED")
+                    进度.更新(1)
+                break
+
             # 2) 收盘后更新策略
             账户 = 执行器.获取账户状态()
             输出 = 策略.在K线收盘(k线, 账户)

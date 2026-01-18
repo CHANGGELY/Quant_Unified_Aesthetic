@@ -35,6 +35,21 @@ class 订单方向(str, Enum):
     卖 = "SELL"
 
 
+class 仓位方向(str, Enum):
+    """
+    仓位方向（Position Side）
+
+    用在“目标仓位/调仓”类策略里：
+    - 多：看涨（LONG）
+    - 空：看跌（SHORT）
+    - 空仓：不持仓（FLAT）
+    """
+
+    多 = "LONG"
+    空 = "SHORT"
+    空仓 = "FLAT"
+
+
 @dataclass(frozen=True, slots=True)
 class K线:
     """
@@ -114,6 +129,28 @@ class 成交回报:
 
 
 @dataclass(frozen=True, slots=True)
+class 目标仓位:
+    """
+    目标仓位（给“调仓执行器”看的）
+
+    设计思路：
+        有些策略并不是“挂很多限价单等成交”，而是更像“每根 K 线收盘决定要不要做多/做空”。
+        这种策略更适合输出“目标仓位”，让执行器去决定：
+            - 用什么价格成交（bid/ask/收盘价）
+            - 成交成本怎么扣（手续费/滑点）
+            - 以及最关键的：怎么判定爆仓
+
+    字段解释：
+        - 名义杠杆：目标名义 = 账户权益 * 名义杠杆
+          类比：你有 100 块押金，杠杆 3 倍，就等价于“借了 200 块”，总共做 300 块的仓位。
+    """
+
+    交易对: str
+    方向: 仓位方向
+    名义杠杆: float = 1.0
+
+
+@dataclass(frozen=True, slots=True)
 class 策略输出:
     """
     策略一次“决策”的输出
@@ -124,5 +161,5 @@ class 策略输出:
     """
 
     目标挂单: list[限价挂单] = field(default_factory=list)
+    目标仓位: 目标仓位 | None = None
     备注: dict[str, Any] = field(default_factory=dict)
-

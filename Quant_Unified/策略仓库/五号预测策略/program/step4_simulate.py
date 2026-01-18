@@ -1,9 +1,29 @@
 from __future__ import annotations
 
+"""
+step4_simulate.py - 单标的回测撮合（始终持仓模式）
+
+这个文件是干嘛的？
+    它把“策略给出的仓位方向（做多/做空/空仓）”变成一条真实的资金曲线。
+
+你可以把它理解成“交易所的简化模拟器”：
+    - 每一根 bar（这里通常是 1 秒）都会用 mark 价结算浮动盈亏
+    - 当方向改变时，会在 bid/ask 上成交（包含点差成本）
+    - 会扣除手续费与滑点
+    - 最重要：会做爆仓检查（保证金率低于阈值就归零）
+
+术语解释：
+    - mark 价：用于结算浮盈浮亏的“标记价格”（交易所通常用它来算你的盈亏）
+    - bid/ask：买一/卖一价格（买入要付 ask，卖出拿 bid，中间差就是点差成本）
+    - 保证金率：你账户的“安全垫厚度”，越低越危险；低于维持保证金率就会爆仓
+"""
+
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+
+from 基础库.common_core.risk_ctrl.liquidation import LiquidationChecker
 
 
 @dataclass(frozen=True)
@@ -25,6 +45,7 @@ def simulate_always_in(
     leverage: float | np.ndarray,
     initial_capital: float,
     min_order_notional: float = 0.0,
+    min_margin_rate: float = 0.005,
     mark_col: str = "wmp",
     bid_col: str = "bid1_p",
     ask_col: str = "ask1_p",
@@ -63,12 +84,19 @@ def simulate_always_in(
     cur_equity = float(initial_capital)
     cur_qty = 0.0
     last_mark = mark[0]
+    已爆仓 = False
+    风控 = LiquidationChecker(min_margin_rate=float(min_margin_rate))
 
     def round_qty(raw_qty: float) -> float:
         lots = np.floor(np.abs(raw_qty) / qty_step)
         return np.sign(raw_qty) * lots * qty_step
 
     for i in range(n):
+        if 已爆仓:
+            equity[i] = 0.0
+            qty[i] = 0.0
+            continue
+
         m = mark[i]
         if not np.isfinite(m):
             equity[i] = cur_equity
@@ -78,6 +106,17 @@ def simulate_always_in(
         # mark-to-market
         cur_equity += (m - last_mark) * cur_qty
         last_mark = m
+
+        # ====== 爆仓检查（回测最重要的事：先活下来）======
+        pos_val = abs(cur_qty) * m
+        is_liq, _ = 风控.check_margin_rate(cur_equity, pos_val)
+        if is_liq:
+            已爆仓 = True
+            cur_equity = 0.0
+            cur_qty = 0.0
+            equity[i] = 0.0
+            qty[i] = 0.0
+            continue
 
         desired = int(pos[i])
         desired_sign = 0 if desired == 0 else (1 if desired > 0 else -1)
@@ -107,6 +146,17 @@ def simulate_always_in(
                     turnover[i] = t
                     cost[i] = exec_impact + tc
                     cur_qty = target_qty
+
+        # 调仓后再做一次爆仓检查（比如：刚加杠杆后保证金率变低）
+        pos_val = abs(cur_qty) * m
+        is_liq, _ = 风控.check_margin_rate(cur_equity, pos_val)
+        if is_liq:
+            已爆仓 = True
+            cur_equity = 0.0
+            cur_qty = 0.0
+            equity[i] = 0.0
+            qty[i] = 0.0
+            continue
 
         equity[i] = cur_equity
         qty[i] = cur_qty
