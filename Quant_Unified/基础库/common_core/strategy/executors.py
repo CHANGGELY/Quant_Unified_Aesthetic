@@ -478,6 +478,417 @@ class K线撮合执行器(执行器接口):
         )
 
 
+@dataclass(slots=True)
+class 对冲撮合统计:
+    """
+    双向持仓（对冲模式）撮合统计信息（回测用）
+    """
+
+    成交次数: int = 0
+    成交额: float = 0.0
+    已实现盈亏: float = 0.0
+
+
+class K线对冲撮合执行器(执行器接口):
+    """
+    K线对冲撮合执行器（单标的、双向持仓）
+
+    适用场景：
+        - 做市/对冲策略：同时持有多头和空头（对冲模式）
+        - 策略输出的订单需要携带 `仓位方向`（LONG/SHORT）
+
+    撮合规则：
+        - 用 OHLC 路径模拟 K 线内价格运动（阳线：开->低->高->收；阴线：开->高->低->收）
+        - 买单：价格下行撞到挂单价则成交
+        - 卖单：价格上行撞到挂单价则成交
+
+    爆仓检查：
+        - 使用“保证金率 = 账户权益 / (多头名义+空头名义)”的保守口径
+        - 低于最小维持保证金率则爆仓，账户归零
+    """
+
+    def __init__(
+        self,
+        交易对: str,
+        初始资金: float,
+        *,
+        maker_fee: float = 0.0,
+        最小维持保证金率: float = 0.005,
+        启用迟滞更新: bool = False,
+    ) -> None:
+        self._交易对 = str(交易对)
+        self._钱包余额 = float(初始资金)
+        self._最新价 = 0.0
+
+        # 双向持仓
+        self._多头数量 = 0.0
+        self._多头均价 = 0.0
+        self._空头数量 = 0.0
+        self._空头均价 = 0.0
+
+        self._maker_fee = float(maker_fee)
+        self._风控 = LiquidationChecker(min_margin_rate=float(最小维持保证金率))
+
+        self._启用迟滞更新 = bool(启用迟滞更新)
+        self._上次多头数量: float | None = None
+        self._上次空头数量: float | None = None
+
+        self._活跃买单: list[限价挂单] = []
+        self._活跃卖单: list[限价挂单] = []
+
+        self._统计 = 对冲撮合统计()
+
+        self._是否爆仓: bool = False
+        self._爆仓时间_ms: int | None = None
+        self._爆仓价格: float | None = None
+
+    # =========================
+    # 执行器接口
+    # =========================
+
+    def 获取账户状态(self) -> 账户状态:
+        当前价 = float(self._最新价)
+        账户权益 = self._计算账户权益(当前价)
+        未实现 = self._计算未实现盈亏(当前价)
+        净持仓 = float(self._多头数量 - self._空头数量)
+        # 净持仓均价在对冲模式下没有严格含义，这里给 0 以避免误用
+        return 账户状态(
+            交易对=self._交易对,
+            账户权益=float(账户权益),
+            可用余额=float(self._钱包余额),
+            持仓数量=float(净持仓),
+            持仓均价=0.0,
+            未实现盈亏=float(未实现),
+            多头持仓数量=float(self._多头数量),
+            多头持仓均价=float(self._多头均价),
+            空头持仓数量=float(self._空头数量),
+            空头持仓均价=float(self._空头均价),
+        )
+
+    def 执行策略输出(self, 输出: 策略输出) -> None:
+        if self._是否爆仓:
+            return
+
+        目标买单, 目标卖单 = self._拆分挂单(输出.目标挂单)
+
+        if not self._启用迟滞更新:
+            self._活跃买单 = 目标买单
+            self._活跃卖单 = 目标卖单
+            self._上次多头数量 = self._多头数量
+            self._上次空头数量 = self._空头数量
+            return
+
+        需要更新 = False
+        if self._上次多头数量 is not None and self._多头数量 != self._上次多头数量:
+            需要更新 = True
+        if self._上次空头数量 is not None and self._空头数量 != self._上次空头数量:
+            需要更新 = True
+        self._上次多头数量 = self._多头数量
+        self._上次空头数量 = self._空头数量
+
+        if not 需要更新 and (not self._活跃买单 or not self._活跃卖单):
+            需要更新 = True
+
+        if 需要更新:
+            self._活跃买单 = 目标买单
+            self._活跃卖单 = 目标卖单
+
+    # =========================
+    # 回测辅助方法
+    # =========================
+
+    def 设置最新价(self, 价格: float) -> None:
+        if 价格 > 0:
+            self._最新价 = float(价格)
+
+    def 获取成交统计(self) -> 对冲撮合统计:
+        return self._统计
+
+    @property
+    def 是否爆仓(self) -> bool:
+        return bool(self._是否爆仓)
+
+    @property
+    def 爆仓时间_ms(self) -> int | None:
+        return self._爆仓时间_ms
+
+    @property
+    def 爆仓价格(self) -> float | None:
+        return self._爆仓价格
+
+    def 推进K线(self, k线: K线) -> list[成交回报]:
+        成交列表: list[成交回报] = []
+
+        if self._是否爆仓:
+            return 成交列表
+
+        开 = float(k线.开)
+        高 = float(k线.高)
+        低 = float(k线.低)
+        收 = float(k线.收)
+        时间戳 = int(k线.收盘时间_ms)
+
+        # 0) 开盘先做一次风险检查（跳空可能直接把你打穿）
+        self._检查爆仓(开, 时间戳)
+        if self._是否爆仓:
+            self._活跃买单 = []
+            self._活跃卖单 = []
+            self._最新价 = 收
+            return 成交列表
+
+        # 没挂单：只更新价格并检查风险
+        if not self._活跃买单 and not self._活跃卖单:
+            self._最新价 = 收
+            self._检查爆仓(收, 时间戳)
+            return 成交列表
+
+        # 1) 开盘跳空撮合
+        成交列表.extend(self._撮合开盘跳空(开, 时间戳))
+        if self._是否爆仓:
+            self._活跃买单 = []
+            self._活跃卖单 = []
+            self._最新价 = 收
+            return 成交列表
+
+        # 2) K 线内部路径撮合
+        if 收 >= 开:
+            路径 = (开, 低, 高, 收)
+        else:
+            路径 = (开, 高, 低, 收)
+
+        for 起点, 终点 in zip(路径, 路径[1:]):
+            if 终点 < 起点:
+                成交列表.extend(self._撮合下跌段(起点, 终点, 时间戳))
+            elif 终点 > 起点:
+                成交列表.extend(self._撮合上涨段(起点, 终点, 时间戳))
+
+            if self._是否爆仓:
+                self._活跃买单 = []
+                self._活跃卖单 = []
+                self._最新价 = 收
+                return 成交列表
+
+            # 段终点做一次风险检查
+            self._检查爆仓(float(终点), 时间戳)
+            if self._是否爆仓:
+                self._活跃买单 = []
+                self._活跃卖单 = []
+                self._最新价 = 收
+                return 成交列表
+
+        self._最新价 = 收
+        self._检查爆仓(收, 时间戳)
+        return 成交列表
+
+    # =========================
+    # 内部工具
+    # =========================
+
+    def _计算未实现盈亏(self, 当前价: float) -> float:
+        pnl = 0.0
+        if self._多头数量 > 0.0 and self._多头均价 > 0.0:
+            pnl += self._多头数量 * (当前价 - self._多头均价)
+        if self._空头数量 > 0.0 and self._空头均价 > 0.0:
+            pnl += self._空头数量 * (self._空头均价 - 当前价)
+        return float(pnl)
+
+    def _计算账户权益(self, 当前价: float) -> float:
+        return float(self._钱包余额 + self._计算未实现盈亏(当前价))
+
+    def _检查爆仓(self, 价格: float, 时间戳_ms: int) -> None:
+        if self._是否爆仓:
+            return
+        价格 = float(价格)
+        if 价格 <= 0.0:
+            return
+
+        if self._多头数量 <= 0.0 and self._空头数量 <= 0.0:
+            return
+
+        pos_val = (abs(self._多头数量) + abs(self._空头数量)) * 价格
+        equity = self._计算账户权益(价格)
+        is_liq, _ = self._风控.check_margin_rate(equity, pos_val)
+        if not is_liq:
+            return
+
+        self._是否爆仓 = True
+        self._爆仓时间_ms = int(时间戳_ms)
+        self._爆仓价格 = float(价格)
+
+        # 爆仓：账户归零
+        self._钱包余额 = 0.0
+        self._多头数量 = 0.0
+        self._多头均价 = 0.0
+        self._空头数量 = 0.0
+        self._空头均价 = 0.0
+
+    @staticmethod
+    def _拆分挂单(挂单列表: Iterable[限价挂单]) -> tuple[list[限价挂单], list[限价挂单]]:
+        买单: list[限价挂单] = []
+        卖单: list[限价挂单] = []
+        for 挂单 in 挂单列表 or []:
+            if 挂单.数量 <= 0 or 挂单.价格 <= 0:
+                continue
+            # 对冲执行器要求明确仓位方向
+            if 挂单.仓位方向 is None:
+                raise ValueError("对冲撮合执行器要求挂单必须设置 仓位方向（LONG/SHORT）")
+            if 挂单.仓位方向 == 仓位方向.空仓:
+                continue
+            if 挂单.方向 == 订单方向.买:
+                买单.append(挂单)
+            else:
+                卖单.append(挂单)
+
+        买单.sort(key=lambda x: float(x.价格), reverse=True)
+        卖单.sort(key=lambda x: float(x.价格))
+        return 买单, 卖单
+
+    def _撮合开盘跳空(self, 开盘价: float, 时间戳: int) -> list[成交回报]:
+        成交列表: list[成交回报] = []
+
+        if self._活跃买单:
+            剩余买单: list[限价挂单] = []
+            for 订单 in self._活跃买单:
+                if 开盘价 <= float(订单.价格):
+                    成交 = self._执行成交(订单, float(订单.价格), float(订单.数量), 时间戳)
+                    if 成交 is not None:
+                        成交列表.append(成交)
+                else:
+                    剩余买单.append(订单)
+            self._活跃买单 = 剩余买单
+
+        if self._活跃卖单:
+            剩余卖单: list[限价挂单] = []
+            for 订单 in self._活跃卖单:
+                if 开盘价 >= float(订单.价格):
+                    成交 = self._执行成交(订单, float(订单.价格), float(订单.数量), 时间戳)
+                    if 成交 is not None:
+                        成交列表.append(成交)
+                else:
+                    剩余卖单.append(订单)
+            self._活跃卖单 = 剩余卖单
+
+        return 成交列表
+
+    def _撮合下跌段(self, 起点: float, 终点: float, 时间戳: int) -> list[成交回报]:
+        if not self._活跃买单:
+            return []
+        if 终点 > 起点:
+            return []
+
+        成交列表: list[成交回报] = []
+        剩余买单: list[限价挂单] = []
+        for 订单 in self._活跃买单:
+            价格 = float(订单.价格)
+            if 终点 <= 价格 <= 起点:
+                成交 = self._执行成交(订单, 价格, float(订单.数量), 时间戳)
+                if 成交 is not None:
+                    成交列表.append(成交)
+            else:
+                剩余买单.append(订单)
+        self._活跃买单 = 剩余买单
+        return 成交列表
+
+    def _撮合上涨段(self, 起点: float, 终点: float, 时间戳: int) -> list[成交回报]:
+        if not self._活跃卖单:
+            return []
+        if 终点 < 起点:
+            return []
+
+        成交列表: list[成交回报] = []
+        剩余卖单: list[限价挂单] = []
+        for 订单 in self._活跃卖单:
+            价格 = float(订单.价格)
+            if 起点 <= 价格 <= 终点:
+                成交 = self._执行成交(订单, 价格, float(订单.数量), 时间戳)
+                if 成交 is not None:
+                    成交列表.append(成交)
+            else:
+                剩余卖单.append(订单)
+        self._活跃卖单 = 剩余卖单
+        return 成交列表
+
+    def _执行成交(self, 订单: 限价挂单, 成交价: float, 成交量: float, 时间戳: int) -> 成交回报 | None:
+        成交量 = float(成交量)
+        if 成交量 <= 0.0:
+            return None
+
+        成交价 = float(成交价)
+        if 成交价 <= 0.0:
+            return None
+
+        仓位 = 订单.仓位方向
+        if 仓位 not in (仓位方向.多, 仓位方向.空):
+            raise ValueError(f"非法仓位方向: {仓位}")
+
+        # 手续费（默认 maker=0）
+        成交额 = 成交价 * 成交量
+        fee = abs(成交额) * self._maker_fee
+        if fee > 0:
+            self._钱包余额 -= fee
+
+        已实现 = 0.0
+
+        if 仓位 == 仓位方向.多:
+            # 多头：BUY 增加，SELL 减少
+            if 订单.方向 == 订单方向.买:
+                new_qty = self._多头数量 + 成交量
+                if self._多头数量 <= 0.0:
+                    self._多头均价 = 成交价
+                    self._多头数量 = new_qty
+                else:
+                    self._多头均价 = (self._多头数量 * self._多头均价 + 成交量 * 成交价) / new_qty
+                    self._多头数量 = new_qty
+            else:
+                if self._多头数量 <= 0.0:
+                    return None
+                close_qty = min(成交量, self._多头数量)
+                已实现 = close_qty * (成交价 - self._多头均价)
+                self._钱包余额 += 已实现
+                self._多头数量 -= close_qty
+                if self._多头数量 <= 1e-12:
+                    self._多头数量 = 0.0
+                    self._多头均价 = 0.0
+
+        else:
+            # 空头：SELL 增加，BUY 减少
+            if 订单.方向 == 订单方向.卖:
+                new_qty = self._空头数量 + 成交量
+                if self._空头数量 <= 0.0:
+                    self._空头均价 = 成交价
+                    self._空头数量 = new_qty
+                else:
+                    self._空头均价 = (self._空头数量 * self._空头均价 + 成交量 * 成交价) / new_qty
+                    self._空头数量 = new_qty
+            else:
+                if self._空头数量 <= 0.0:
+                    return None
+                close_qty = min(成交量, self._空头数量)
+                已实现 = close_qty * (self._空头均价 - 成交价)
+                self._钱包余额 += 已实现
+                self._空头数量 -= close_qty
+                if self._空头数量 <= 1e-12:
+                    self._空头数量 = 0.0
+                    self._空头均价 = 0.0
+
+        self._统计.成交次数 += 1
+        self._统计.成交额 += abs(成交额)
+        self._统计.已实现盈亏 += float(已实现)
+
+        # 成交后立刻做一次风险检查
+        self._检查爆仓(float(成交价), int(时间戳))
+
+        return 成交回报(
+            交易对=self._交易对,
+            成交时间_ms=int(时间戳),
+            成交价=float(成交价),
+            成交量=float(成交量),
+            方向=订单.方向,
+            是否Maker=True,
+            仓位方向=仓位,
+        )
+
+
 class K线调仓执行器(执行器接口):
     """
     K线调仓执行器（单标的）
