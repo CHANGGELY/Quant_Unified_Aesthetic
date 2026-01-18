@@ -46,6 +46,13 @@
 └── nautilus_trader/       # 高性能回测与实盘核心集成
 ```
 
+## 🧩 统一策略架构（最重要）
+我们把整个系统统一成“脑子 + 执行器”两段式：
+- **策略（脑子）**：只负责决策，输出“我想挂哪些单 / 我想持什么仓位 / 我想分配哪些权重”
+- **执行器（手脚）**：只负责执行，回测里做撮合（用 K 线开高低收来判断是否成交），实盘里下真实订单，并做爆仓（保证金不够）检测
+
+这样做的好处是：**同一份策略逻辑**可以同时跑回测与实盘，避免“回测一套、实盘一套”导致结果完全对不上。
+
 ## 🛠️ 快速开始 (Quick Start)
 
 ### 1. 环境配置
@@ -56,12 +63,29 @@ source miniforge/bin/activate
 ```
 
 ### 2. 全局配置
-修改 [config.py](file:///Users/chuan/Desktop/xiangmu/客户端/Quant_Unified/config.py) 即可统一控制全系统的深度档位：
+修改 `Quant_Unified/config.py` 即可统一控制全系统的深度档位：
 ```python
 DEPTH_LEVEL = 20  # 支持 5, 10, 20, 50, 100
 ```
 
-### 3. 启动管理后台
+### 3. 统一测试入口（CI 同款）
+```bash
+python3 -X utf8 Quant_Unified/测试用例/运行CI测试.py
+```
+
+### 4. 策略接口版回测入口（推荐）
+```bash
+# 3号对冲策略（接口版：对冲撮合执行器）
+python3 -X utf8 Quant_Unified/策略仓库/三号对冲策略/backtest_interface.py --no-chart --limit 5000
+
+# 4号做市策略（接口版：对冲撮合执行器）
+python3 -X utf8 "Quant_Unified/策略仓库/4 号做市策略/backtest_interface.py" --no-chart --limit 5000
+
+# 1号择时策略（接口版：脑子输出权重表 + 组合调仓执行器）
+python3 -X utf8 Quant_Unified/策略仓库/一号择时策略/select-coin-feat-long_short_compose/backtest_interface.py --no-chart
+```
+
+### 5. 启动管理后台
 ```bash
 # 后端启动
 cd Quant_Unified/应用/qronos && python main.py
