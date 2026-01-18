@@ -30,11 +30,15 @@ cache/
 
 # 大体积目录（与 Zeabur 实盘部署无关）
 数据/历史行情中心/
+数据/模型中心/
+third_party/
+归档/
+文档/工程规划/
+文档/图片上下文/
+输出/
 models/
 nautilus_trader/
 nautilus_market_maker/
-select-coin-25年终版/
-图片上下文/
 Quant_Unified/zeabur_deploy_legacy/
 
 # 常见回测产物（图片/HTML 报告）
