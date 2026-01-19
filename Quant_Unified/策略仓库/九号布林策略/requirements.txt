@@ -1,0 +1,11 @@
+# 九号布林策略（只推送信号，不下单）所需的最小依赖
+#
+# 说明：
+# - requests：拉取公开 K 线接口 + 发送钉钉消息
+# - aiohttp：WebSocket（长连接）收币安 1m K 线推送
+# - python-dotenv：读取 .env.local，把内容写进环境变量（不覆盖你手动 export 的值）
+
+requests>=2.31
+aiohttp>=3.9
+python-dotenv>=1.0
+
