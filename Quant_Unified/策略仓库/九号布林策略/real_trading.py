@@ -23,7 +23,7 @@ import os
 import sys
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -380,6 +380,29 @@ async def _主程序() -> None:
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="九号布林策略",
+        description="九号布林策略实时信号脚本：每分钟计算一次，满足条件后下一分钟推送钉钉（关键词：布林）。",
+    )
+    parser.add_argument(
+        "--test-dingtalk",
+        action="store_true",
+        help="只发送一条“布林”测试消息并退出（用于验证 webhook 是否可用）",
+    )
+    args = parser.parse_args()
+
+    if bool(args.test_dingtalk):
+        cfg = 九号布林策略配置()
+        if not cfg.钉钉Webhook:
+            raise ValueError("未配置 DINGTALK_WEBHOOK_URL：无法发送钉钉测试消息")
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        content = f"{cfg.钉钉关键词} 九号布林策略测试：脚本可运行，时间={now_str}"
+        _发送钉钉文本(webhook_url=cfg.钉钉Webhook, content=content)
+        print("✅ 钉钉测试消息已发送（请在钉钉里确认是否收到）")
+        return
+
     try:
         asyncio.run(_主程序())
     except KeyboardInterrupt:
