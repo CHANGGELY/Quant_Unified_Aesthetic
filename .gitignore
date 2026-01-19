@@ -6,6 +6,7 @@ __pycache__/
 venv/
 ENV/
 .env
+.env.local
 
 # Data & Logs (核心：排除大数据文件和日志)
 Quant_Unified/data/

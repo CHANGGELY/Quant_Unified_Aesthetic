@@ -3,7 +3,7 @@
 env_kit.py - 统一的环境变量/.env 加载工具
 
 这个文件是干嘛的？
-    你可以把 `.env` 理解成“配置小本子”：
+    你可以把 `.env` / `.env.local` 理解成“配置小本子”：
     - 里面写着 API Key、代理、运行模式等配置
     - 程序启动时把这些配置读进来，就不用每次都手动 export
 
@@ -13,9 +13,10 @@ env_kit.py - 统一的环境变量/.env 加载工具
     - 最常见的坑：脚本在深层目录里，`.env` 在上层目录，导致“明明有 Key 但读不到”
 
 这个工具的规则（不覆盖系统环境变量）：
-    1) 优先加载：起点目录（通常是策略目录）的 `.env`
-    2) 向上查找：最近的一个 `.env`（通常是 `Quant_Unified/.env`）
-    3) 全程 override=False（系统环境变量优先）
+    1) 优先加载：起点目录（通常是策略目录）的 `.env.local`（更适合放密钥，不进 git）
+    2) 其次加载：起点目录的 `.env`（通常是模板/非敏感配置）
+    3) 向上查找：最近一层的 `.env.local` / `.env`（通常是 `Quant_Unified/.env.local` / `Quant_Unified/.env`）
+    4) 全程 override=False（系统环境变量优先）
     
 重要约定（唯一入口）：
     - 代码只读取“系统环境变量”
@@ -55,16 +56,21 @@ def 加载_env文件(起点: str | Path) -> list[Path]:
     起点目录 = _解析起点目录(起点)
     候选: list[Path] = []
 
-    # 1) 策略目录/.env
-    策略env = 起点目录 / ".env"
-    if 策略env.is_file():
-        候选.append(策略env)
+    # 1) 策略目录优先：.env.local -> .env
+    for 文件名 in (".env.local", ".env"):
+        p = 起点目录 / 文件名
+        if p.is_file() and p not in 候选:
+            候选.append(p)
 
-    # 2) 向上找最近的 .env（全局兜底）
+    # 2) 向上找最近的一层 .env.local / .env（全局兜底）
     for 上级目录 in 起点目录.parents:
-        上级env = 上级目录 / ".env"
-        if 上级env.is_file() and 上级env not in 候选:
-            候选.append(上级env)
+        found_any = False
+        for 文件名 in (".env.local", ".env"):
+            上级env = 上级目录 / 文件名
+            if 上级env.is_file() and 上级env not in 候选:
+                候选.append(上级env)
+                found_any = True
+        if found_any:
             break
 
     for 路径 in 候选:
