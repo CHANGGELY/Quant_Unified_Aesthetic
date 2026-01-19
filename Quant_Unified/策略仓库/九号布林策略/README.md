@@ -115,12 +115,23 @@ python3 -X utf8 backtest.py --days 30
 
 ## 8. 打包给别人怎么做（重点）
 ### 8.1 最稳妥的“最小可运行包”需要包含哪些目录？
-因为 `real_trading.py` 会引用公共库 `common_core`（里面有 WebSocket 管理器、`.env` 加载器），所以压缩包里至少要包含：
+因为 `real_trading.py` 只用到了公共库 `common_core` 的**两个小工具**：
+- 行情 WebSocket 管理器（负责“电话不断线”接收 1m K 线推送）
+- `.env` 加载器（负责读取 `.env.local`，把内容填进系统环境变量）
 
-1) `Quant_Unified/策略仓库/九号布林策略/`（本策略代码）
-2) `Quant_Unified/基础库/common_core/`（公共底座库）
+所以真正需要的最小文件集合是：
 
-并且要保持它们的相对目录结构不变（否则 import 会找不到）。
+1) 策略本体（整个目录保留即可）
+- `Quant_Unified/策略仓库/九号布林策略/`
+
+2) 公共底座（只要这 5 个文件，其他都不需要）
+- `Quant_Unified/基础库/common_core/__init__.py`
+- `Quant_Unified/基础库/common_core/exchange/__init__.py`
+- `Quant_Unified/基础库/common_core/exchange/binance_ws_manager.py`
+- `Quant_Unified/基础库/common_core/utils/__init__.py`
+- `Quant_Unified/基础库/common_core/utils/env_kit.py`
+
+并且要保持它们的相对目录结构不变（否则 Python 的 import 会找不到）。
 
 ### 8.2 压缩包里 **绝对不要包含** 的文件
 - `Quant_Unified/策略仓库/九号布林策略/.env.local`（里面是你的 webhook/可能还有密钥）
@@ -132,7 +143,11 @@ python3 -X utf8 backtest.py --days 30
 ```bash
 zip -r 九号布林策略_发布包.zip \
   Quant_Unified/策略仓库/九号布林策略 \
-  Quant_Unified/基础库/common_core \
+  Quant_Unified/基础库/common_core/__init__.py \
+  Quant_Unified/基础库/common_core/exchange/__init__.py \
+  Quant_Unified/基础库/common_core/exchange/binance_ws_manager.py \
+  Quant_Unified/基础库/common_core/utils/__init__.py \
+  Quant_Unified/基础库/common_core/utils/env_kit.py \
   -x "**/.env.local" -x "**/.env" -x "**/__pycache__/**" -x "**/*.pyc" -x "**/.DS_Store"
 ```
 
