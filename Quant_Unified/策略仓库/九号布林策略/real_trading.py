@@ -80,57 +80,65 @@ def _设置行情环境(*, 使用测试网: bool) -> None:
     print("🌍 行情环境：主网 (真实行情)")
 
 
-def _拉取最近K线_向后回溯(*, symbol: str, interval: str, 总根数: int) -> list[dict[str, Any]]:
+def _拉取最近K线_向后回溯(*, symbol: str, interval: str, 总根数: int, 使用测试网: bool) -> list[dict[str, Any]]:
     """
     用 REST 拉取最近 N 根 K线（向后回溯拼接）
 
     说明：
         - 这是“预热”用途：让布林/均线在启动时就有足够窗口
         - 全程使用真实接口，不使用任何假数据（Mock Data）
+        - 这里只拉行情 K线：使用币安的“公开接口”，不需要 API KEY
     """
     if 总根数 <= 0:
         return []
 
-    # 延迟导入：确保我们已经根据 cfg 设置好了 BINANCE_TESTNET / BINANCE_USE_TESTNET
-    from common_core.exchange import binance_raw as api  # noqa: WPS433（允许延迟导入，避免环境变量时序问题）
-
     interval = str(interval).strip()
-    interval_ms_map = {
-        "1m": 60_000,
-        "1d": 86_400_000,
-    }
-    interval_ms = interval_ms_map.get(interval)
-    if interval_ms is None:
+    if interval not in {"1m", "1d"}:
         raise ValueError(f"暂不支持的 interval={interval}（目前只用到 1m/1d）")
 
-    # fetch_candle_data 只支持 endTime，我们就从“现在”一路往回拉
-    end_time: datetime | None = None
+    # 关键修正：
+    #   common_core.exchange.binance_raw 为了“安全默认”，在未开启 USE_REAL_TRADING 时会强制走测试网。
+    #   九号策略只拉行情（不下单），你又明确选了主网（B），所以这里直接走币安公开行情端点。
+    base_url = "https://testnet.binancefuture.com" if 使用测试网 else "https://fapi.binance.com"
+    url = f"{base_url}/fapi/v1/klines"
+
+    # Binance Klines: 只支持 endTime(ms)，我们就从“现在”一路往回拉
+    end_time_ms: int | None = None
     已拿到: list[dict[str, Any]] = []
     remaining = int(总根数)
 
     while remaining > 0:
-        limit = min(1000, remaining)
-        df = api.fetch_candle_data(symbol, end_time=end_time, interval=interval, limit=limit)
-        if df is None or df.empty:
+        limit = min(1000, remaining)  # 币安上限 1500，我们保守点用 1000
+        params: dict[str, Any] = {"symbol": str(symbol).upper().strip(), "interval": interval, "limit": limit}
+        if end_time_ms is not None:
+            params["endTime"] = int(end_time_ms)
+
+        r = requests.get(url, params=params, timeout=10.0)
+        r.raise_for_status()
+        raw = r.json()
+        if not isinstance(raw, list) or not raw:
             break
 
-        # 统一成 dict，保留 open_time(ms) 与 close_time(ms)
-        # 注意：df['open_time'] 是 datetime，df['close_time'] 是 int(ms)
         chunk: list[dict[str, Any]] = []
-        for _, row in df.iterrows():
-            close_ms = int(row["close_time"])
-            open_ms = int(close_ms - interval_ms + 1)
-            chunk.append(
-                {
-                    "open_ms": open_ms,
-                    "close_ms": close_ms,
-                    "open": float(row["open"]),
-                    "high": float(row["high"]),
-                    "low": float(row["low"]),
-                    "close": float(row["close"]),
-                    "volume": float(row.get("volume", 0.0) or 0.0),
-                }
-            )
+        for item in raw:
+            # 返回格式见币安文档：list[list]
+            # [0] openTime, [1] open, [2] high, [3] low, [4] close, [5] volume, [6] closeTime
+            try:
+                open_ms = int(item[0])
+                close_ms = int(item[6])
+                chunk.append(
+                    {
+                        "open_ms": open_ms,
+                        "close_ms": close_ms,
+                        "open": float(item[1]),
+                        "high": float(item[2]),
+                        "low": float(item[3]),
+                        "close": float(item[4]),
+                        "volume": float(item[5]),
+                    }
+                )
+            except Exception:
+                continue
 
         if not chunk:
             break
@@ -140,7 +148,7 @@ def _拉取最近K线_向后回溯(*, symbol: str, interval: str, 总根数: int
 
         # 下一轮往更早的时间拉（用最早一根的 open_time 往前推 1ms）
         earliest_open_ms = min(x["open_ms"] for x in chunk)
-        end_time = datetime.utcfromtimestamp((earliest_open_ms - 1) / 1000.0)
+        end_time_ms = int(earliest_open_ms - 1)
 
         # 轻微休眠，避免过快触发限速（虽然我们这里请求很少）
         time.sleep(0.05)
@@ -219,7 +227,12 @@ async def _主程序() -> None:
 
     # 3) 预热：日线（只拉必要的最小数据）
     logger.info("🧠 预热日线 MA：拉取最近 %s 天 1d K线...", cfg.预热日线K线_天数)
-    daily_rows = _拉取最近K线_向后回溯(symbol=cfg.交易对, interval="1d", 总根数=int(cfg.预热日线K线_天数))
+    daily_rows = _拉取最近K线_向后回溯(
+        symbol=cfg.交易对,
+        interval="1d",
+        总根数=int(cfg.预热日线K线_天数),
+        使用测试网=bool(cfg.使用测试网),
+    )
     if not daily_rows:
         logger.warning("⚠️ 日线预热为空：后续 4h -> 1d 门槛可能一直不满足（因为 MA60 不够）")
     for row in daily_rows:
@@ -229,7 +242,12 @@ async def _主程序() -> None:
     # 4) 预热：1m（只采集“计算需要”的分钟K线）
     minutes = int(max(1, cfg.预热分钟K线_天数) * 1440)
     logger.info("🧠 预热分钟K线：拉取最近 %s 天 1m K线（约 %s 根）...", cfg.预热分钟K线_天数, minutes)
-    rows_1m = _拉取最近K线_向后回溯(symbol=cfg.交易对, interval="1m", 总根数=minutes)
+    rows_1m = _拉取最近K线_向后回溯(
+        symbol=cfg.交易对,
+        interval="1m",
+        总根数=minutes,
+        使用测试网=bool(cfg.使用测试网),
+    )
     if len(rows_1m) < minutes * 0.8:
         logger.warning("⚠️ 分钟K线预热数量偏少：拿到 %s / 期望 %s（可能网络/限速/时间段原因）", len(rows_1m), minutes)
 
@@ -243,8 +261,7 @@ async def _主程序() -> None:
             收=float(row["close"]),
             量=float(row.get("volume", 0.0) or 0.0),
         )
-        closed = 脑子.喂入一分钟K线(k)
-        _ = 脑子.处理已收盘周期K线并产出信号(closed)  # 预热阶段不推送历史信号
+        _ = 脑子.喂入一分钟K线并产出信号(k)  # 预热阶段不推送历史信号
     logger.info("✅ 分钟K线预热完成：%s 根", len(rows_1m))
 
     # 5) 实时部分：订阅 1m K线（只用真实 1m，然后本地聚合）
@@ -339,8 +356,7 @@ async def _主程序() -> None:
             量=float(k.get("v", 0.0) or 0.0),
         )
 
-        closed = 脑子.喂入一分钟K线(one)
-        新信号 = 脑子.处理已收盘周期K线并产出信号(closed)
+        新信号 = 脑子.喂入一分钟K线并产出信号(one)
 
         for s in 新信号:
             # 只排程未来（避免时间乱序导致立刻发）
