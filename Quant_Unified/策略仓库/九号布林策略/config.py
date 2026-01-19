@@ -43,7 +43,7 @@ class 九号布林策略配置:
 
     # 日线 MA60 需要至少 60 根 1d K线（60 天），但我们不拉 60 天 1m（太浪费）。
     # 这里单独拉日线历史（这也是“计算需要”的最小数据）。
-    预热日线K线_天数: int = int(os.getenv("BOLL9_WARMUP_1D_DAYS", "120"))
+    预热日线K线_天数: int = int(os.getenv("BOLL9_WARMUP_1D_DAYS", "70"))
 
     # ====== 信号阈值（按你的描述写死默认，可用 env 覆盖）======
     # MA 收敛阈值（max(MA5,MA30,MA60)-min(...) < 阈值）
@@ -64,4 +64,3 @@ class 九号布林策略配置:
 
     # 钉钉限制：1 分钟最多 20 条（你已明确）
     钉钉每分钟最多发送: int = int(os.getenv("BOLL9_DINGTALK_RPM_LIMIT", "20"))
-
