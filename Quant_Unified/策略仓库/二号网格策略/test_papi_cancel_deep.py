@@ -1,3 +1,21 @@
+"""
+test_papi_cancel_deep.py - 深度测试统一账户（PAPI）撤单（会尝试撤真实挂单）
+
+这个文件是干嘛的？
+    和 `test_papi_cancel.py` 类似，但更“啰嗦”一点：
+    - 直接从 PAPI 取原始挂单列表
+    - 用不同的订单 ID 类型（int / str）分别尝试撤单
+    - 还会尝试 ccxt 的统一 `cancel_order` 方法
+
+怎么用？
+    1) 确保你是统一账户模式：export BINANCE_ACCOUNT_TYPE=\"unified\"
+    2) 运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/test_papi_cancel_deep.py
+
+安全提醒：
+    这个脚本会撤掉真实挂单，请谨慎运行。
+"""
+
 import os
 import sys
 

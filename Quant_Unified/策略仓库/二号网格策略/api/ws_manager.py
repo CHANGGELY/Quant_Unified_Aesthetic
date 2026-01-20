@@ -1,18 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-ws_manager.py - WebSocket（长连接）管理器（二号策略专用薄封装）
+api/ws_manager.py - WebSocket（网络长连接）管理器（二号网格策略）
 
 这个文件是干嘛的？
-    我们把通用的 WebSocket 管理逻辑抽到了公共层：
-        common_core.exchange.binance_ws_manager.BinanceWsManager
+    我们把“WebSocket 管理”做成了公共组件：
+        common_core.exchange.BinanceWsManager
 
-    二号策略（以及复用它的三号策略）只需要：
-        - 兼容旧 import 路径
-        - 注入二号策略自己的 API（用于 ListenKey）
-        - 指定用户数据流类型为 PM
+    二号网格策略只需要在这里做一层很薄的封装，解决两件事：
+    1) 兼容旧 import 路径（老代码还能 import 到同一个名字）
+    2) 注入二号策略自己的 ListenKey 获取方式
 
-术语解释：
-    - PM（Portfolio Margin）：组合保证金/统一账户（WebSocket 路径带 /pm/）
+术语解释（用人话）：
+    - WebSocket（网络长连接）：交易所会“主动推送”订单成交/账户变动等消息给你，不用你每秒去问一次。
+    - ListenKey（用户数据流钥匙）：币安用它来识别“这是你的私有推送频道”。
+    - PM（Portfolio Margin：组合保证金/统一账户）：统一账户对应的用户数据流类型。
+
+怎么用？
+    你通常不需要直接运行本文件。
+    实盘脚本会这样用它：
+        from 策略仓库.二号网格策略.api.ws_manager import BinanceWsManager
 """
 
 from __future__ import annotations
@@ -37,4 +43,3 @@ class BinanceWsManager(_CoreBinanceWsManager):
             use_testnet=None,
             proxy=getattr(api, "PROXY", None),
         )
-

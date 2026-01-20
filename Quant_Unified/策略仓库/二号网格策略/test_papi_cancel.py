@@ -1,3 +1,26 @@
+"""
+test_papi_cancel.py - 测试统一账户（PAPI）撤单参数格式（会尝试撤真实挂单）
+
+这个文件是干嘛的？
+    统一账户模式下，撤单接口对参数格式比较敏感。
+    这个脚本会：
+    - 拉取当前挂单
+    - 取一个订单 ID
+    - 直接调用 `papiDeleteUmOrder` 看参数是否能被接受
+
+术语解释：
+    - PAPI（Portfolio Margin API）：币安统一账户/组合保证金接口
+    - 撤单：取消挂出去但还没成交的订单
+
+怎么用？
+    1) 确保你是统一账户模式：export BINANCE_ACCOUNT_TYPE=\"unified\"
+    2) 运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/test_papi_cancel.py
+
+安全提醒：
+    这个脚本可能会撤掉一笔真实挂单，别在你不想撤单的时候运行。
+"""
+
 import os
 import sys
 

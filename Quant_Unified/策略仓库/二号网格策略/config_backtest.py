@@ -1,7 +1,21 @@
 """
-2 号网格策略 - 回测专用配置
-在这里修改参数，仅影响 backtest.py 回测脚本。
-支持配置多个策略组合进行批量回测（例如同时回测 ETH 做多和做空）。
+config_backtest.py - 二号网格策略的回测配置（你最常改的地方之一）
+
+这个文件是干嘛的？
+    这里专门放“回测参数”，你可以把它当成：
+    - 回测要跑哪些币（symbol）
+    - 每个币用多少本金（money）、多少杠杆（leverage）
+    - 网格上下界、格子数、是否自动上移/下移
+    - 回测时间范围（start_time / end_time 或 num_hours）
+
+怎么用？
+    1) 先改本文件里的 `backtest_strategies` 列表（可以写多个 Config(...)，就是多策略组合回测）
+    2) 然后运行回测入口脚本：
+        - Firm 架构版组合回测：python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/backtest.py
+        - 统一接口版回测：python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/backtest_interface.py
+
+注意：
+    回测参数写错最常见的症状是“数据下载不到/回测区间不对”，优先检查时间格式与币种名称。
 """
 from datetime import datetime
 

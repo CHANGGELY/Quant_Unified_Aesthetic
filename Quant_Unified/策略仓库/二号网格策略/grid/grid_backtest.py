@@ -1,3 +1,24 @@
+"""
+grid/grid_backtest.py - 二号网格策略旧版回测（独立实现，读取 config.yaml）
+
+这个文件是干嘛的？
+    这是一个“最小可跑”的旧版网格回测实现：
+    - 读取 `config.yaml` 的回测参数
+    - 用 `core/engine.py` 加载/抓取 1 分钟 K 线
+    - 在 K 线内部用“开→高/低→收”的轨迹推进价格，模拟网格触发
+
+怎么用？
+    1) 先修改同目录下的 `config.yaml`（回测币种、时间、网格区间等）
+    2) 运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/grid/grid_backtest.py
+
+新旧版本说明（避免你被绕晕）：
+    - 本文件是“旧版回测路径”，优点是独立、直接；缺点是和实盘执行器口径可能逐渐走偏。
+    - 推荐的新路径是：
+        * `backtest_interface.py`（策略脑子 + 通用执行器，回测/实盘更容易对齐）
+        * `backtest.py`（Firm 架构版组合回测）
+"""
+
 import time
 from datetime import datetime, timedelta
 import pandas as pd

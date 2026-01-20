@@ -1,3 +1,21 @@
+"""
+verify_fix.py - 验证修复脚本：测试撤单函数是否正常（实盘，会撤掉真实挂单）
+
+这个文件是干嘛的？
+    之前如果遇到“撤单报错 / 订单 ID 类型不对”等问题，
+    可以用这个脚本做一次最小验证：
+    - 先拉取当前挂单
+    - 拿第一笔挂单的 ID
+    - 调用 `api.cancel_order(...)` 试着撤掉它
+
+怎么用？
+    需要你已配置好币安 API Key/Secret（见 `api/binance.py` 的说明），然后运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/verify_fix.py
+
+安全提醒：
+    本脚本会撤掉一笔真实挂单，别在你不想撤单的时候运行。
+"""
+
 import os
 import sys
 

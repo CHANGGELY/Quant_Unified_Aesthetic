@@ -1,17 +1,31 @@
 """
-2号网格策略 - 实盘交易脚本 (多币种并行版)
-Real Trading Script for Grid Strategy No.2 (Multi-Symbol Support)
+real_trading.py - 二号网格策略实盘交易脚本（多币种并行版）
 
-功能：
-1. 同时运行多个网格策略（支持不同币种、不同方向、不同参数）
-2. 共享一个 WebSocket 连接，高效监听所有订单
-3. 自动同步账户资金与持仓
-4. 支持复利模式
-5. 具备断网重连与状态自动恢复功能
+这个文件是干嘛的？
+    这是“实盘执行器”（真金白银的那种），它会：
+    1) 读取 `config_live.py` 里的 `live_strategies`
+    2) 连接币安，按网格逻辑挂单/撤单
+    3) 用 WebSocket（网络长连接：交易所主动推送订单成交/账户变动）订阅成交推送
+    4) 断线自动重连，并尽量恢复状态
 
-使用前请确保环境变量中包含：
-export BINANCE_API_KEY="your_api_key"
-export BINANCE_SECRET_KEY="your_secret_key"
+怎么用（推荐顺序，最不容易踩坑）：
+    1) 先把环境变量配好（系统环境变量，像“电脑里的保险箱”）：
+        export BINANCE_API_KEY="你的key"
+        export BINANCE_SECRET_KEY="你的secret"
+        export BINANCE_ACCOUNT_TYPE="unified"          # 可选：统一账户（否则 normal）
+        export BINANCE_PROXY="http://127.0.0.1:7890"   # 可选：代理（不需要就不配）
+    2) 先跑接口连通性测试（不下单，只查余额）：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/test_api.py
+    3) 修改 `config_live.py` 的策略列表与参数
+    4) 启动实盘：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/real_trading.py
+
+日志在哪看？
+    - 终端会实时打印
+    - 同时会写入：Quant_Unified/系统日志/grid_strategy_live.log
+
+安全提醒（重要）：
+    这是实盘脚本，会真实下单。第一次跑建议用很小资金，并随时盯着日志与币安 App。
 """
 
 import time

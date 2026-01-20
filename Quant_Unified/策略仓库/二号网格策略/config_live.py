@@ -1,3 +1,26 @@
+"""
+config_live.py - 二号网格策略的实盘配置（你最常改的地方之一）
+
+这个文件是干嘛的？
+    这里专门放“实盘参数”，核心是两块：
+    1) `TOTAL_CAPITAL_CONFIG`：本次允许投入的总资金上限（可以是百分比，也可以是固定数额）
+    2) `live_strategies`：实盘要同时跑哪些策略（每个 Config(...) 就是一台“独立网格机器人”）
+
+怎么用？
+    1) 先把你的币安 API Key/Secret 配到环境变量里：
+        - BINANCE_API_KEY（程序接口的 key）
+        - BINANCE_SECRET_KEY（程序接口的 secret）
+        - BINANCE_ACCOUNT_TYPE（账户类型：normal / unified）
+    2) 再改本文件里的 `live_strategies`（币种、方向、多大区间、多少格等）
+    3) 最后启动实盘脚本：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/real_trading.py
+
+安全提醒（重要）：
+    这是实盘配置，启动后会真的下单。第一次跑建议：
+    - 先用很小资金
+    - 先跑 `test_api.py` 确认接口能通
+"""
+
 import os
 import sys
 

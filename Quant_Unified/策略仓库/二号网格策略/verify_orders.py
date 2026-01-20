@@ -1,3 +1,20 @@
+"""
+verify_orders.py - 检查当前挂单是否符合预期（实盘，仅读取）
+
+这个文件是干嘛的？
+    实盘运行时，你可能想快速确认：
+    - 每个交易对买单/卖单各有多少
+    - 价格和数量大概是什么
+    - 是否“挂单数量不足”（比如本来每边要 4 个，结果只挂出 2 个）
+
+怎么用？
+    需要你已配置好币安 API Key/Secret（见 `api/binance.py` 的说明），然后运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/verify_orders.py
+
+安全提醒：
+    本脚本只查询，不下单、不撤单。
+"""
+
 import asyncio
 import logging
 

@@ -1,6 +1,23 @@
-# 2 号网格策略 - 基础配置定义
-# 这个文件定义了 Config 类，作为回测和实盘配置的基类。
-# 请不要直接修改此文件中的类定义，而是在 config_backtest.py 或 config_live.py 中进行实例化和参数配置。
+"""
+config.py - 二号网格策略的“配置说明书”（Config 类）
+
+这个文件是干嘛的？
+    这个文件定义了 `Config` 类，你可以把它当成“策略要用的参数清单”，例如：
+    - 交易对（symbol）
+    - 本金（money）
+    - 杠杆（leverage）
+    - 网格数量、上下边界、是否允许上移/下移等
+    - 回测时间范围、数据目录等
+
+怎么用（推荐做法）：
+    你一般**不要**在这里改默认值（除非你在做全局升级）。
+    正常使用流程是：
+    - 回测：在 `config_backtest.py` 里创建 Config(...) 实例
+    - 实盘：在 `config_live.py` 里创建 Config(...) 实例
+
+小提醒：
+    Config 设计成“接收未知字段也会保存”，是为了避免你写了参数但没生效的隐蔽 bug。
+"""
 
 from pathlib import Path
 from datetime import datetime

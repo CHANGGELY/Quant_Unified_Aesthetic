@@ -1,3 +1,21 @@
+"""
+emergency_diag.py - 二号网格策略「紧急诊断」脚本（实盘）
+
+这个文件是干嘛的？
+    当你怀疑账户风险很高（保证金快没了、仓位很大、可能要爆仓）时，用它快速打印一份诊断报告：
+    - 账户净值（Equity：账户总价值）
+    - 可用保证金（Available：还能拿来开新仓/补保证金的钱）
+    - SOL/ETH 持仓与名义价值
+    - 净 Delta 暴露（用人话：你整体更像“偏多”还是“偏空”）
+
+怎么用？
+    需要你已配置好币安 API Key/Secret（见 `api/binance.py` 的说明），然后运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/emergency_diag.py
+
+安全提醒：
+    本脚本只“查询”，不下单，属于相对安全的脚本。
+"""
+
 import os
 import sys
 
