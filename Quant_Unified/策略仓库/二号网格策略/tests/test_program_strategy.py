@@ -1,3 +1,26 @@
+"""
+tests/test_program_strategy.py - 单元测试：program/step2_strategy.py 的 GridStrategy
+
+这个文件是干嘛的？
+    验证“新版本/程序版”的 GridStrategy 核心计算是否正常，比如：
+    - 中枢价/间隔计算
+    - 上下触发价格
+    - 配对盈利累计
+    - 触发上移逻辑
+
+怎么用？
+    在仓库根目录运行：
+        python3 -m unittest Quant_Unified/策略仓库/二号网格策略/tests/test_program_strategy.py
+"""
+
+import sys
+from pathlib import Path
+
+# 让 `import 策略仓库...` 能找到 Quant_Unified 这个根目录
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # Quant_Unified
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import unittest
 from datetime import datetime
 

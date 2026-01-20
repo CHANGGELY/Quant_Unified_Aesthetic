@@ -1,3 +1,24 @@
+"""
+test_api.py - 币安接口连通性自检（安全：只查余额，不下单）
+
+这个文件是干嘛的？
+    这是给新手用的“开机自检”：
+    - 检查你是否正确配置了 BINANCE_API_KEY / BINANCE_SECRET_KEY
+    - 分别尝试连接：
+        1) 现货账户（Spot：现货交易）
+        2) 合约账户（Futures：合约/期货交易）
+        3) 统一账户（PAPI：Portfolio Margin API，组合保证金/统一账户接口）
+
+怎么用？
+    1) 先配置环境变量（见 `api/binance.py` 的说明）
+    2) 运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/test_api.py
+
+你会看到什么？
+    - 哪个接口能通、哪个接口报错
+    - 如果能通，会打印出余额的一部分作为证明
+"""
+
 import os
 import sys
 import logging

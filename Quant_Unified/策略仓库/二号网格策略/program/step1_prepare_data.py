@@ -1,7 +1,16 @@
 """
-Quant Unified 量化交易系统
-[数据准备脚本]
-功能：负责读取历史 CSV/Parquet 数据，清洗格式，对齐时间戳，为回测提供标准输入。
+program/step1_prepare_data.py - 数据准备（给回测/实盘提供统一的行情输入）
+
+这个文件是干嘛的？
+    你可以把它理解成“喂数据的同学”：
+    - 按照配置（Config）决定要准备哪段历史行情
+    - 优先用本地/历史行情中心的数据，不够再去交易所下载
+    - 最终返回一个 pandas DataFrame（pandas：Python 里最常用的表格数据结构）
+
+怎么用？
+    你通常不直接运行这个文件，而是被回测入口脚本调用：
+        - Quant_Unified/策略仓库/二号网格策略/backtest.py
+        - Quant_Unified/策略仓库/二号网格策略/backtest_interface.py
 """
 import pandas as pd
 from pathlib import Path

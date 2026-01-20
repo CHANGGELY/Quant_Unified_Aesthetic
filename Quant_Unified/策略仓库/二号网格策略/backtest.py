@@ -1,4 +1,27 @@
-# 这个文件是二号网格策略的回测入口：加载配置、准备数据、运行模拟，并输出报告
+"""
+backtest.py - 二号网格策略回测入口（Firm 架构版：支持“多策略组合”一起回测）
+
+这个文件是干嘛的？
+    你可以把它理解成“回测启动按钮”：
+    - 读取回测配置（`config_backtest.py`）
+    - 准备历史行情数据（`program/step1_prepare_data.py`）
+    - 把数据喂给回测模拟器，跑完整个回测
+
+怎么用？
+    1) 先在 `config_backtest.py` 里改好你要回测的策略列表（币种、网格区间、格子数等）
+    2) 运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/backtest.py
+
+你会看到什么输出？
+    - 每个策略的回测摘要
+    - 组合（Portfolio：把多个策略当成一个账户一起跑）的整体表现
+
+备注：
+    本脚本属于“Firm 架构版”回测（用 firm.grid_core 的模拟器）。
+    如果你想用“策略脑子 + 通用执行器”的方式回测，请看：
+        Quant_Unified/策略仓库/二号网格策略/backtest_interface.py
+"""
+
 import os
 import sys
 from pathlib import Path

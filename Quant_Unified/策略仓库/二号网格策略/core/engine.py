@@ -1,3 +1,24 @@
+"""
+core/engine.py - 旧版回测引擎（读取 config.yaml 并驱动策略）
+
+这个文件是干嘛的？
+    你可以把它理解成“回测电机”：
+    - 读取 `config.yaml`（YAML：一种常见配置文件格式，像“带缩进的字典”）
+    - 决定从哪里加载 1 分钟 K 线（本地文件 / 统一历史行情中心 / 线上抓取）
+    - 把价格一根一根喂给策略（Strategy.on_tick / Strategy.on_bar）
+    - 最后输出回测摘要
+
+怎么用？
+    你通常不用直接运行本文件，而是直接运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/grid/grid_backtest.py
+    因为 `grid/grid_backtest.py` 会创建 BacktestEngine 并调用它。
+
+新旧版本说明：
+    这套引擎主要服务“旧版 grid/grid_backtest.py”。
+    如果你更想要“策略脑子 + 通用执行器”的结构，请优先看：
+        Quant_Unified/策略仓库/二号网格策略/backtest_interface.py
+"""
+
 import pandas as pd
 from pathlib import Path
 from datetime import datetime, timedelta

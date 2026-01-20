@@ -1,3 +1,19 @@
+"""
+emergency_reduce.py - 二号网格策略「紧急减仓」脚本（实盘，会真实下单）
+
+这个文件是干嘛的？
+    当你已经处于高风险（保证金不足、杠杆太高）时，用它快速把 SOL 多头仓位减掉一部分，
+    目标是“先活下来”（释放保证金），再考虑策略。
+
+怎么用？
+    需要你已配置好币安 API Key/Secret（见 `api/binance.py` 的说明），然后运行：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/emergency_reduce.py
+
+安全提醒（非常重要）：
+    - 这个脚本会真实下单（卖出平仓）。
+    - 运行前请确认你要处理的币种、仓位方向、以及你能接受的成交价格。
+"""
+
 import os
 import sys
 import time

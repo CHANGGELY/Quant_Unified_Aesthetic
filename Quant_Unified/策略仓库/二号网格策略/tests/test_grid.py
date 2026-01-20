@@ -1,3 +1,22 @@
+"""
+tests/test_grid.py - 单元测试（unittest：Python 自带的测试框架）
+
+这个文件是干嘛的？
+    验证旧版 `grid/grid_backtest.py` 里的 GridStrategy 是否能正常初始化、触发网格更新、触发上移逻辑。
+
+怎么用？
+    在仓库根目录运行：
+        python3 -m unittest Quant_Unified/策略仓库/二号网格策略/tests/test_grid.py
+"""
+
+import sys
+from pathlib import Path
+
+# 让 `import 策略仓库...` 能找到 Quant_Unified 这个根目录
+PROJECT_ROOT = Path(__file__).resolve().parents[3]  # Quant_Unified
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import unittest
 import pandas as pd
 from datetime import datetime

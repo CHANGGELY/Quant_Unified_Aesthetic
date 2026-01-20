@@ -1,3 +1,37 @@
+"""
+api/binance.py - 币安接口封装（二号网格策略用）
+
+这个文件是干嘛的？
+    这个文件专门负责“跟币安沟通”，把常用动作封装成函数，给回测/实盘脚本调用，比如：
+    - 拉取 K 线（历史价格序列）
+    - 查询余额/持仓/挂单
+    - 下单 / 撤单
+
+这里用到了哪些关键概念（用人话解释）：
+    - API（Application Programming Interface：程序接口）
+      作用：让你的程序通过网络跟交易所说话，获取数据、发订单。
+    - ccxt（第三方 Python 库：把不同交易所的接口“统一成同一种写法”）
+      作用：你不用背每家交易所的接口细节，调用起来更一致。
+    - PAPI（Portfolio Margin API：组合保证金/统一账户接口）
+      作用：如果你用的是币安“统一账户”，很多查询/撤单要走这套接口。
+
+怎么用（推荐顺序）：
+    1) 先准备环境变量（系统环境变量，像“电脑里的保险箱”）：
+        export BINANCE_API_KEY="你的key"
+        export BINANCE_SECRET_KEY="你的secret"
+        export BINANCE_ACCOUNT_TYPE="unified"          # 可选：统一账户（否则 normal）
+        export BINANCE_PROXY="http://127.0.0.1:7890"   # 可选：代理（不需要就不配）
+    2) 先跑连通性测试（最省事）：
+        python3 -X utf8 Quant_Unified/策略仓库/二号网格策略/test_api.py
+    3) 实盘脚本会直接 import 本文件：
+        Quant_Unified/策略仓库/二号网格策略/real_trading.py
+
+安全提醒：
+    本文件里包含真实下单/撤单能力。跑脚本前务必确认：
+    - 账户模式（普通/统一账户）配置正确
+    - 你清楚自己在用真金白银
+"""
+
 import os
 import time
 import logging
