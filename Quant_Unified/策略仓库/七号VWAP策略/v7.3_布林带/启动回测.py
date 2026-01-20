@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-七号 VWAP 策略（V7.3 布林带）- 启动回测
+七号 VWAP 策略（V7.3.1 布林带回归）- 启动回测
 
 这个文件是干嘛的？
-    用历史分钟 K 线（开/高/低/收）回测 V7.3 版本的 VWAP“轨道策略”（像布林带一样有上轨/下轨）。
+    用历史分钟 K 线（开/高/低/收）回测 V7.3.1 版本的 VWAP“轨道策略”（像布林带一样有上轨/下轨）。
+    核心规则（用一句话概括）：
+        价格偏离上/下轨就“反向开仓”，回到 VWAP（中轨）就止盈；若继续突破到 (k+1)×σ 就止损。
 
 术语解释（用人话）：
     - VWAP（Volume Weighted Average Price：成交量加权平均价）
@@ -33,11 +35,14 @@ from 基础库.common_core.backtest.可视化 import 回测可视化
 warnings.filterwarnings('ignore')
 
 # ======================= [核心配置区域] =======================
-# 默认参数 (基于贝叶斯优化结果 Calmar=1.43)
+# 策略版本
+STRATEGY_VERSION = "V7.3.1"
+
+# 默认参数
 N = 1391                  # 周期
-K = 3.9                   # 轨道宽度 (倍数)
+K = 2.0                   # 轨道宽度 k：V7.3.1 初始取 2（后续可做参数优化）
 WEIGHTING_TYPE = 'EMA'    # 加权方式
-LOGIC_MODE = 'Reversion'  # 模式: 'Reversion' (反转策略胜出)
+LOGIC_MODE = 'Reversion_Stop'  # 模式: 'Reversion_Stop'（回归 + 止损，V7.3.1）
 
 START_DATE = '2021-01-01'
 END_DATE   = '2025-06-15'
@@ -56,7 +61,7 @@ DATA_PATH = 获取分钟K线H5文件(
 # =========================================================
 
 def load_data(file_path, start, end):
-    print(f"📂 [V7.3 布林带] 正在加载 ETH 历史数据...")
+    print(f"📂 [{STRATEGY_VERSION} 布林带] 正在加载 ETH 历史数据...")
     import h5py
     import hdf5plugin
     
@@ -81,8 +86,15 @@ def load_data(file_path, start, end):
     return df
 
 def calculate_vwap_bands(df, n, k, weighting):
-    typical_price = (df['close'] + df['high'] + df['low']) / 3
-    
+    """
+    计算 VWAP + “布林带”轨道。
+
+    说明（用人话）：
+        - 中轨：VWAP（成交量加权平均价）
+        - 上下轨：VWAP ± k × 标准差（σ）
+        - 标准差 σ：这里用价格序列的标准差近似（业界常见做法）
+    """
+
     if weighting == 'EMA':
         # VWAP
         vwap = (df['quote_volume'].ewm(span=n, min_periods=n).mean() / 
@@ -100,13 +112,13 @@ def calculate_vwap_bands(df, n, k, weighting):
     upper = vwap + k * std
     lower = vwap - k * std
     
-    return vwap, upper, lower
+    return vwap, upper, lower, std
 
 def run_backtest(df, n, k, weighting, mode, fee, slippage, leverage):
     print(f"⚙️  正在回测: Mode={mode} {weighting} N={n} K={k}")
     
     # 1. 计算指标
-    middle, upper, lower = calculate_vwap_bands(df, n, k, weighting)
+    middle, upper, lower, std = calculate_vwap_bands(df, n, k, weighting)
     close = df['close']
     
     # 2. 信号逻辑
@@ -212,7 +224,9 @@ def run_backtest(df, n, k, weighting, mode, fee, slippage, leverage):
             u = u_arr[i]
             l = l_arr[i]
             
-            if np.isnan(m): continue
+            if np.isnan(m):
+                pos[i] = curr_pos
+                continue
 
             if curr_pos == 0:
                 if price >= u: # 触及上轨，开空
@@ -231,6 +245,68 @@ def run_backtest(df, n, k, weighting, mode, fee, slippage, leverage):
             
             pos[i] = curr_pos
 
+    elif mode == 'Reversion_Stop':
+        """
+        V7.3.1：布林带回归策略（带止损）
+
+        开仓：
+            - Price > Upper：做空（认为超买，将回落）
+            - Price < Lower：做多（认为超卖，将反弹）
+
+        止盈：
+            - 触碰 VWAP（中轨）就平仓
+
+        止损：
+            - 价格继续突破，超过 (k+1) × σ 时止损
+              做空止损：VWAP + (k+1)×σ
+              做多止损：VWAP - (k+1)×σ
+        """
+
+        pos = np.zeros(len(df))
+        curr_pos = 0
+
+        c_arr = close.values
+        m_arr = middle.values
+        u_arr = upper.values
+        l_arr = lower.values
+        s_arr = std.values
+
+        for i in range(1, len(df)):
+            price = c_arr[i]
+            m = m_arr[i]
+            u = u_arr[i]
+            l = l_arr[i]
+            s = s_arr[i]
+
+            if np.isnan(m) or np.isnan(s):
+                pos[i] = curr_pos
+                continue
+
+            # 止损带（比入场带更远 1 个标准差）
+            upper_stop = m + (k + 1.0) * s
+            lower_stop = m - (k + 1.0) * s
+
+            if curr_pos == 0:
+                if price > u:      # 突破上轨，开空
+                    curr_pos = -1
+                elif price < l:    # 跌破下轨，开多
+                    curr_pos = 1
+
+            elif curr_pos == 1:  # 持多
+                # 先判止损，再判止盈（更安全：先保命）
+                if price <= lower_stop:
+                    curr_pos = 0
+                elif price >= m:
+                    curr_pos = 0
+
+            elif curr_pos == -1:  # 持空
+                if price >= upper_stop:
+                    curr_pos = 0
+                elif price <= m:
+                    curr_pos = 0
+
+            pos[i] = curr_pos
+
     # 3. 计算收益
     pos_series = pd.Series(pos, index=df.index)
     change_pos = (pos_series - pos_series.shift(1).fillna(0)).abs()
@@ -241,7 +317,7 @@ def run_backtest(df, n, k, weighting, mode, fee, slippage, leverage):
     equity = (1 + strat_ret).cumprod()
     return equity, pos_series
 
-def report(equity, pos, close_price=None):
+def report(equity, pos, 策略名称, close_price=None):
     if len(equity) == 0: return
     
     # 还原权益 (归一化 -> 绝对值)
@@ -254,7 +330,7 @@ def report(equity, pos, close_price=None):
         时间戳=equity.index,
         周期每年数量=525600
     )
-    计算器.打印报告(策略名称=f"VWAP V7.3 ({LOGIC_MODE})")
+    计算器.打印报告(策略名称=策略名称)
     
     # 2. 统一可视化图表 (默认开启)
     if 'show_chart' not in globals() or globals()['show_chart']:
@@ -266,12 +342,16 @@ def report(equity, pos, close_price=None):
             显示图表=True,
             保存路径=PROJECT_ROOT / "策略仓库/七号VWAP策略/v7.3_布林带"
         )
-        可视化.生成报告(策略名称=f"VWAP V7.3 ({LOGIC_MODE})")
+        可视化.生成报告(策略名称=策略名称)
 
 def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--no-chart", action="store_true", help="不显示图表")
+    parser.add_argument("--mode", type=str, default=LOGIC_MODE, help="回测模式: Trend / Reversion / Reversion_Stop")
+    parser.add_argument("--k", type=float, default=K, help="轨道宽度 k（倍数）")
+    parser.add_argument("--n", type=int, default=N, help="周期 N")
+    parser.add_argument("--weighting", type=str, default=WEIGHTING_TYPE, help="加权方式: EMA / SMA")
     args = parser.parse_args()
     
     # 全局变量控制图表开关
@@ -280,10 +360,17 @@ def main():
 
     try:
         data = load_data(DATA_PATH, START_DATE, END_DATE)
-        equity_curve, pos = run_backtest(data, N, K, WEIGHTING_TYPE, LOGIC_MODE, FEE_RATE, SLIPPAGE, LEVERAGE)
+        mode = args.mode
+        k = float(args.k)
+        n = int(args.n)
+        weighting = args.weighting
+
+        策略名称 = f"VWAP {STRATEGY_VERSION} ({mode}) N={n} K={k} {weighting}"
+
+        equity_curve, pos = run_backtest(data, n, k, weighting, mode, FEE_RATE, SLIPPAGE, LEVERAGE)
         
         # 传入价格序列用于绘图
-        report(equity_curve, pos, close_price=data['close'].values)
+        report(equity_curve, pos, 策略名称=策略名称, close_price=data['close'].values)
         
     except Exception as e:
         print(f"❌ 运行失败: {e}")
