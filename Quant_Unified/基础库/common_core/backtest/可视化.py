@@ -173,10 +173,128 @@ class 回测可视化:
         # 回撤序列 (负数)
         self.回撤 = (self.净值 - self.累计最高) / self.累计最高
     
+    def _渲染核心指标区块(
+        self,
+        核心指标: Optional[Dict[str, Any]] = None,
+        成交统计: Optional[Dict[str, Any]] = None,
+        市场状态分布: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """
+        渲染核心指标卡片区块（资金、收益、风险、交易统计等）。
+        这些指标会以卡片形式展示在图表上方，一眼就能看到关键数据。
+        """
+        if not 核心指标 and not 成交统计 and not 市场状态分布:
+            return ""
+
+        cards: List[str] = []
+
+        # ====== 核心指标卡片 ======
+        if 核心指标:
+            # 资金指标
+            初始资金 = 核心指标.get("初始资金", 0)
+            最终资金 = 核心指标.get("最终资金", 0)
+            总收益率 = 核心指标.get("总收益率", 0) * 100
+            年化收益率 = 核心指标.get("年化收益率", 0) * 100
+            对数收益率 = 核心指标.get("对数收益率", 0)
+            最大回撤 = 核心指标.get("最大回撤", 0) * 100
+            回撤恢复天数 = 核心指标.get("回撤恢复天数")
+            卡玛比率 = 核心指标.get("卡玛比率", 0)
+            夏普比率 = 核心指标.get("夏普比率", 0)
+            索提诺比率 = 核心指标.get("索提诺比率", 0)
+            年化波动率 = 核心指标.get("年化波动率", 0) * 100
+            胜率 = 核心指标.get("胜率", 0) * 100
+            盈亏比 = 核心指标.get("盈亏比", 0)
+            回测天数 = 核心指标.get("回测天数", 0)
+
+            恢复天数文本 = f"{回撤恢复天数} 天" if 回撤恢复天数 and 回撤恢复天数 > 0 else "未恢复"
+
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">💰 资金</div>
+              <div class="metric-row"><span>初始资金</span><span>{初始资金:,.2f} USDT</span></div>
+              <div class="metric-row"><span>最终资金</span><span>{最终资金:,.2f} USDT</span></div>
+              <div class="metric-row highlight"><span>总收益率</span><span>{总收益率:+.2f}%</span></div>
+            </div>
+            """)
+
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">📈 收益</div>
+              <div class="metric-row highlight"><span>年化收益率</span><span>{年化收益率:+.2f}%</span></div>
+              <div class="metric-row"><span>对数收益率</span><span>{对数收益率:.4f}</span></div>
+              <div class="metric-row"><span>回测天数</span><span>{回测天数} 天</span></div>
+            </div>
+            """)
+
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">🌊 风险</div>
+              <div class="metric-row danger"><span>最大回撤</span><span>{最大回撤:.2f}%</span></div>
+              <div class="metric-row"><span>恢复天数</span><span>{恢复天数文本}</span></div>
+              <div class="metric-row"><span>年化波动率</span><span>{年化波动率:.2f}%</span></div>
+            </div>
+            """)
+
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">⚖️ 比率</div>
+              <div class="metric-row"><span>卡玛比率</span><span>{卡玛比率:.2f}</span></div>
+              <div class="metric-row"><span>夏普比率</span><span>{夏普比率:.2f}</span></div>
+              <div class="metric-row"><span>索提诺比率</span><span>{索提诺比率:.2f}</span></div>
+            </div>
+            """)
+
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">🎯 交易</div>
+              <div class="metric-row"><span>胜率</span><span>{胜率:.2f}%</span></div>
+              <div class="metric-row"><span>盈亏比</span><span>{盈亏比:.2f}</span></div>
+            </div>
+            """)
+
+        # ====== 成交统计 ======
+        if 成交统计:
+            总成交次数 = 成交统计.get("总成交次数", 0)
+            日均成交次数 = 成交统计.get("日均成交次数", 0)
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">🔄 成交</div>
+              <div class="metric-row"><span>总成交次数</span><span>{总成交次数:,}</span></div>
+              <div class="metric-row"><span>日均成交</span><span>{日均成交次数:.1f} 次</span></div>
+            </div>
+            """)
+
+        # ====== 市场状态分布 ======
+        if 市场状态分布:
+            normal = 市场状态分布.get("NORMAL", {"数量": 0, "占比": 0})
+            spike = 市场状态分布.get("SPIKE", {"数量": 0, "占比": 0})
+            crush = 市场状态分布.get("CRUSH", {"数量": 0, "占比": 0})
+            cards.append(f"""
+            <div class="metric-card">
+              <div class="metric-title">📊 市场状态</div>
+              <div class="metric-row"><span>NORMAL</span><span>{normal.get('数量', 0):,} ({normal.get('占比', 0):.1f}%)</span></div>
+              <div class="metric-row"><span>SPIKE</span><span>{spike.get('数量', 0):,} ({spike.get('占比', 0):.1f}%)</span></div>
+              <div class="metric-row"><span>CRUSH</span><span>{crush.get('数量', 0):,} ({crush.get('占比', 0):.1f}%)</span></div>
+            </div>
+            """)
+
+        cards_html = "\n".join(cards)
+        return f"""
+<section class="metrics-section">
+  <div class="metrics-grid">
+    {cards_html}
+  </div>
+</section>
+""".strip()
+
     def 生成报告(
         self,
         策略名称: str = "策略",
         显示价格: bool = True,
+        年化收益率: Optional[float] = None,
+        核心指标: Optional[Dict[str, Any]] = None,
+        成交统计: Optional[Dict[str, Any]] = None,
+        市场状态分布: Optional[Dict[str, Any]] = None,
         **额外指标
     ) -> str:
         """
@@ -185,6 +303,10 @@ class 回测可视化:
         参数：
             策略名称: 策略名称，显示在标题上
             显示价格: 是否在右轴显示价格曲线
+            年化收益率: 用于文件命名（如 -0.2076 表示 -20.76%）
+            核心指标: 回测指标字典（资金、收益、风险、交易等）
+            成交统计: 成交统计字典（总成交次数、日均成交次数）
+            市场状态分布: 市场状态分布字典（NORMAL/SPIKE/CRUSH）
             额外指标: 额外要显示的指标（如 卡玛比率=0.48）
         
         返回：
@@ -346,14 +468,21 @@ class 回测可视化:
         )
         
         # =============== 保存文件 ===============
-        时间戳 = datetime.now().strftime("%Y%m%d_%H%M%S")
-        文件名 = f"回测报告_{策略名称}_{时间戳}.html"
+        # 文件命名格式：年化+XX.XX%_MMDD-HHMM_回测报告.html
+        # 这样一眼就能看到关键信息，且末尾保留"回测报告"以触发 .gitignore
+        时间戳 = datetime.now().strftime("%m%d-%H%M")  # 只保留月日时分
+        if 年化收益率 is not None:
+            年化标签 = f"年化{年化收益率 * 100:+.2f}%"
+        else:
+            年化标签 = "年化未知"
+        文件名 = f"{年化标签}_{时间戳}_回测报告.html"
         文件路径 = self.保存路径 / 文件名
 
-        # 生成自定义 HTML：在图表上方插入「回测配置参数」
+        # 生成自定义 HTML：在图表上方插入「核心指标」和「回测配置参数」
+        指标区块 = self._渲染核心指标区块(核心指标, 成交统计, 市场状态分布)
         参数区块 = self._渲染报告参数区块()
         图表HTML = pio.to_html(fig, full_html=False, include_plotlyjs=True)
-        页面标题 = html.escape(f"{策略名称} 回测报告")
+        页面标题 = html.escape(f"{年化标签} {策略名称} 回测报告")
 
         页面HTML = f"""<!doctype html>
 <html lang="zh-CN">
@@ -440,10 +569,57 @@ class 回测可视化:
       line-height: 1.45;
       color: #111827;
     }}
+    /* ====== 核心指标卡片样式 ====== */
+    .metrics-section {{
+      margin: 12px 0 16px;
+    }}
+    .metrics-grid {{
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }}
+    .metric-card {{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }}
+    .metric-title {{
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+      color: #374151;
+    }}
+    .metric-row {{
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+    }}
+    .metric-row:last-child {{
+      border-bottom: none;
+    }}
+    .metric-row span:first-child {{
+      color: var(--muted);
+    }}
+    .metric-row span:last-child {{
+      font-weight: 500;
+      color: var(--text);
+    }}
+    .metric-row.highlight span:last-child {{
+      color: #059669;
+      font-weight: 600;
+    }}
+    .metric-row.danger span:last-child {{
+      color: #DC2626;
+      font-weight: 600;
+    }}
   </style>
 </head>
 <body>
   <div class="page">
+    {指标区块}
     {参数区块}
     {图表HTML}
   </div>
@@ -458,7 +634,22 @@ class 回测可视化:
         # 根据开关决定是否打开
         if self.显示图表:
             print("🌐 正在打开浏览器...")
-            webbrowser.open(f"file://{文件路径.resolve()}")
+            # 修复：在 macOS 上优先使用系统 'open' 命令
+            # 因为 Python 的 webbrowser 模块有时候会犯傻，非要去找 Chrome/Firefox，
+            # 而忽略了用户设置的默认浏览器（比如你的豆包浏览器）。
+            import platform
+            import subprocess
+            
+            opened = False
+            if platform.system() == "Darwin":
+                try:
+                    subprocess.run(["open", str(文件路径.resolve())], check=True)
+                    opened = True
+                except Exception:
+                    pass
+            
+            if not opened:
+                webbrowser.open(f"file://{文件路径.resolve()}")
         
         return str(文件路径)
     

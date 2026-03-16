@@ -54,7 +54,7 @@ width_multiplier_spike = 1.5  # Spike 模式：网格放大 1.5x
 width_multiplier_crush = 0.8  # Crush 模式：网格收缩 0.8x
 
 # 💰 资金配置
-initial_capital = 83.9    # 初始资金 (USDC)
+initial_capital = 1000    # 初始资金 (USDC)
 
 # ====== 杠杆（合约保证金口径，非借贷）======
 # 口径定义：

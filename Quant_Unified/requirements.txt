@@ -12,6 +12,8 @@ matplotlib
 seaborn
 scipy
 numpy
+scikit-learn
+hmmlearn
 requests
 aiohttp
 aiosqlite
