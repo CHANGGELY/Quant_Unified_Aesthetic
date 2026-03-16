@@ -9,6 +9,8 @@ ENV/
 .env.local
 .agent/
 .python-version
+miniforge/
+Miniforge3-MacOSX-arm64.sh
 
 # Data & Logs (核心：排除大数据文件和日志)
 Quant_Unified/data/
