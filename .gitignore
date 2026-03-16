@@ -7,9 +7,13 @@ venv/
 ENV/
 .env
 .env.local
+.agent/
+.python-version
 
 # Data & Logs (核心：排除大数据文件和日志)
 Quant_Unified/data/
+Quant_Unified/.deps/
+Quant_Unified/hf_deploy_temp/
 数据/历史行情中心/**
 !数据/历史行情中心/
 !数据/历史行情中心/README.md
@@ -24,7 +28,11 @@ Quant_Unified/系统日志/
 cache/
 Quant_Unified/cache/
 Quant_Unified/zeabur_deploy_legacy/
-**/回测报告_*.html
+输出/回测报告/
+**/data/回测结果/
+**/*回测报告*.html
+**/*资金曲线*.html
+**/*组合报告*.html
 **/equity_curve_*.html
 **/equity_curve_*.png
 **/*.nbc
