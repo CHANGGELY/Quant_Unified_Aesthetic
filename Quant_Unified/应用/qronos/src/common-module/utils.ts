@@ -20,11 +20,22 @@ export const isWeixinOpen = () => {
 };
 
 import AnsiToHtml from "ansi-to-html";
+
+// HTML 转义：日志等内容经转义后才允许进入 v-html，防止注入恶意标签（XSS）
+export const escapeHtml = (text: string) =>
+  text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export const formatOutputLog = (text: string) => {
   const converter = new AnsiToHtml({
     fg: localStorage.getItem("themeMode") === "system" ? "#222" : "#e5e7eb", // 默认字体色
   });
-  let html = converter.toHtml(text);
+  // 先转义 HTML 特殊字符，再交给 ANSI 转换器（ANSI 控制序列不受转义影响）
+  let html = converter.toHtml(escapeHtml(text));
   // 保留换行和前导空格
   html = html
     .split("\n")

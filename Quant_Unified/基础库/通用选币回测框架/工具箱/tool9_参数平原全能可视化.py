@@ -504,7 +504,9 @@ def render_generation_ui():
             status_text.text(f"正在生成 {len(param_range)} 个策略配置...")
 
             strategies = []
-            context = {"range": range, "True": True, "False": False}
+            # 安全加固：清空 __builtins__，eval 只能使用白名单里的 range，
+            # 防止策略模板被注入恶意代码（RCE）。
+            context = {"range": range, "True": True, "False": False, "__builtins__": {}}
             for p in param_range:
                 current_str = strategy_str.replace("{param}", str(p))
                 strategy_dict = eval(current_str, context)

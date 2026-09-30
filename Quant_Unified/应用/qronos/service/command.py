@@ -57,10 +57,9 @@ def get_pm2_list() -> List[Dict[str, Any]]:
     logger.info("获取PM2进程列表")
 
     try:
-        # 执行PM2命令获取JSON格式的进程列表
+        # 执行PM2命令获取JSON格式的进程列表（列表参数 + shell=False，避免命令注入）
         result = subprocess.run(
-            "pm2 jlist",
-            shell=True,
+            ["pm2", "jlist"],
             env=get_pm2_env(),
             capture_output=True,
             text=True,
@@ -127,8 +126,8 @@ def del_pm2(framework_id: str) -> bool:
     logger.info(f"删除PM2进程: {framework_id}")
 
     try:
-        # 使用Popen异步执行删除命令
-        subprocess.Popen(f"pm2 del {framework_id}", env=get_pm2_env(), shell=True)
+        # 使用Popen异步执行删除命令（列表参数 + shell=False，framework_id 不再拼接进 shell 字符串）
+        subprocess.Popen(["pm2", "del", framework_id], env=get_pm2_env())
         logger.info(f"PM2删除命令已执行: {framework_id}")
         return True
 
@@ -165,8 +164,7 @@ def get_conda_env(env_name: str = 'Alpha') -> str:
     try:
         logger.debug("尝试查找conda环境...")
         result = subprocess.run(
-            "conda env list",
-            shell=True,
+            ["conda", "env", "list"],
             capture_output=True,
             text=True,
             timeout=30
@@ -206,8 +204,7 @@ def get_pm2_env() -> dict:
     env = os.environ.copy()
     try:
         result = subprocess.run(
-            "pm2 info pm2-logrotate",
-            shell=True,
+            ["pm2", "info", "pm2-logrotate"],
             capture_output=True,
             text=True
         )

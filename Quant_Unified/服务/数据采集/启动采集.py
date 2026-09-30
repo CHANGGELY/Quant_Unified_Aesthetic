@@ -341,6 +341,8 @@ class BinanceRecorder:
             return {}
         
         self.last_ip_check_time = now
+        # 安全说明：ip-api.com 免费端点仅支持 HTTP（HTTPS 需付费），无法升级为 https。
+        # 该接口只返回出口 IP 的公开地理信息（国家代码/IP），不含敏感数据，风险可接受。
         url = "http://ip-api.com/json/?fields=status,message,countryCode,query"
         
         def _fetch_blocking():

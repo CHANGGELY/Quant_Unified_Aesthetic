@@ -50,15 +50,18 @@ def get_monthly_first_days(start_date_str: str) -> list[str]:
         else: curr = curr.replace(month=curr.month+1)
     return dates
 
+# 安全加固：默认开启 TLS 证书校验；如需对接自签证书的内网服务，
+# 通过环境变量 TARDIS_CA_BUNDLE 指定 CA 证书路径，而不是关闭校验。
+CA_BUNDLE = os.getenv("TARDIS_CA_BUNDLE") or True
+
 def download_file(url: str, dest_path: str, max_retries: int = 5):
-    """使用 requests 下载文件，支持禁用 SSL 校验和重试"""
+    """使用 requests 下载文件（默认校验 TLS 证书，支持重试）"""
     import time
-    
+
     for attempt in range(1, max_retries + 1):
         try:
             logger.info(f"开始下载 (尝试 {attempt}/{max_retries}): {url}")
-            # verify=False 彻底解决证书问题
-            with requests.get(url, stream=True, timeout=300, verify=False) as r:
+            with requests.get(url, stream=True, timeout=300, verify=CA_BUNDLE) as r:
                 r.raise_for_status()
                 with open(dest_path, 'wb') as f:
                     for chunk in r.iter_content(chunk_size=1024*1024):
@@ -190,7 +193,5 @@ def main():
             logger.info(f"[{completed_count}/{total} | {progress:.1%}] {res}")
 
 if __name__ == "__main__":
-    # 禁用警告
-    import urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    # 已默认开启 TLS 校验，无需再禁用 InsecureRequestWarning
     main()
