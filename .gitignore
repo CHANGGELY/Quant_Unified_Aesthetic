@@ -7,6 +7,9 @@ venv/
 ENV/
 .env
 .env.local
+.env.save
+.env.*.save
+*.env.save
 .agent/
 .python-version
 miniforge/
