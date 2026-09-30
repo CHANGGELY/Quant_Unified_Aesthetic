@@ -23,8 +23,13 @@ ENV PORT=7860
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# 创建一个简单的监控探针脚本
+# 创建监控探针脚本
 RUN echo 'from flask import Flask; import os; app = Flask(__name__); @app.route("/")\ndef hello(): return "Quant Collector is Running!";\nif __name__ == "__main__": app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))' > /app/hf_probe.py
+
+# 安全加固：创建非 root 用户并赋予应用目录权限，避免容器以 root 运行
+RUN useradd --create-home --uid 1000 quant \
+    && chown -R quant:quant /app
+USER quant
 
 # 启动脚本：同时运行采集器和监控探针
 CMD python /app/Quant_Unified/服务/数据采集/启动采集.py & python /app/hf_probe.py

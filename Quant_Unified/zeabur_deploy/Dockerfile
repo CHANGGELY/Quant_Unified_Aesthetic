@@ -27,6 +27,11 @@ COPY Quant_Unified /app/Quant_Unified
 # 入口脚本（在 Quant_Unified/zeabur_deploy/entrypoint.sh）
 RUN chmod +x /app/Quant_Unified/zeabur_deploy/entrypoint.sh
 
+# 安全加固：创建非 root 用户并赋予应用目录权限，避免容器以 root 运行
+RUN useradd --create-home --uid 1000 quant \
+    && chown -R quant:quant /app
+USER quant
+
 # 暴露端口（仅做说明；Zeabur 实际会用 PORT 环境变量）
 EXPOSE 8080
 
