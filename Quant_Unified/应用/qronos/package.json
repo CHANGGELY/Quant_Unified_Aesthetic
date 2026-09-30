@@ -21,7 +21,7 @@
     "axios": "^1.9.0",
     "copy-to-clipboard": "^3.3.3",
     "dayjs": "^1.11.13",
-    "echarts": "^5.6.0",
+    "echarts": "^6.1.0",
     "pinia": "^3.0.3",
     "primeicons": "^7.0.0",
     "primevue": "^4.3.5",
@@ -30,7 +30,7 @@
     "tailwindcss": "^4.1.7",
     "tailwindcss-primeui": "^0.6.1",
     "vue": "^3.5.13",
-    "vue-echarts": "^7.0.3",
+    "vue-echarts": "^8.3.1",
     "vue-router": "^4.2.3",
     "vue3-lazy": "^1.0.0-alpha.1"
   },
