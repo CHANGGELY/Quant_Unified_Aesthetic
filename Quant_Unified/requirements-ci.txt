@@ -12,3 +12,4 @@ tqdm
 plotly
 h5py
 hdf5plugin
+sortedcontainers  # orderbook_replay 的有序字典依赖（CI 补漏）
