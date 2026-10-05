@@ -27,6 +27,7 @@ jobs:
           cargo update -p capnp --precise 0.24.0       || echo "WARN capnp failed"
           cargo update -p capnpc --precise 0.24.0     || echo "WARN capnpc failed"
           cargo update -p parquet                      || echo "WARN parquet failed"
+          cargo update -p hypersync-client              || echo "WARN hypersync failed"
           cargo update -p thrift --precise 0.23.0      || echo "WARN thrift failed (等待 parquet 释放约束)"
           cargo update -p lru --precise 0.18.2         || cargo update -p lru --precise 0.16.3 || echo "WARN lru failed"
           cargo update -p xxhash-rust --precise 0.8.16 || echo "WARN xxhash-rust failed"
