@@ -22,7 +22,7 @@ jobs:
           pip install -e Quant_Unified/基础库/common_core
       - name: Run Unit Tests
         env:
-          PYTHONPATH: Quant_Unified
+          PYTHONPATH: Quant_Unified:Quant_Unified/基础库
         run: |
           cd Quant_Unified
           find . -name "test_*.py" -not -path "*/node_modules/*" -exec dirname {} \; | sort -u | while read -r d; do
