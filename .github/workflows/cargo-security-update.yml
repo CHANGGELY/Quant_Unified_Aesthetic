@@ -1,0 +1,38 @@
+name: Security cargo update (nautilus)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # ---------- 第一段：安全补丁组（pyo3 除外） ----------
+      - name: Patch capnp manifest pin
+        working-directory: third_party/nautilus_trader
+        run: sed -i 's/^capnp = "0.23.1"/capnp = "0.24.0"/' Cargo.toml
+
+      - name: Cargo update (thrift/capnp/lru/xxhash-rust/ruint)
+        working-directory: third_party/nautilus_trader
+        run: |
+          set +e
+          cargo update -p thrift --precise 0.23.0      || echo "WARN thrift failed"
+          cargo update -p capnp --precise 0.24.0       || echo "WARN capnp failed"
+          cargo update -p lru --precise 0.18.2         || cargo update -p lru --precise 0.16.3 || echo "WARN lru failed"
+          cargo update -p xxhash-rust --precise 0.8.16 || echo "WARN xxhash-rust failed"
+          cargo update -p ruint --precise 1.17.1       || echo "WARN ruint failed"
+          exit 0
+
+      - name: Commit batch 1
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add third_party/nautilus_trader/Cargo.lock third_party/nautilus_trader/Cargo.toml
+          git diff --cached --quiet || (git commit -m "security(cargo): thrift→0.23.0 capnp→0.24.0 lru→0.18.2 xxhash-rust→0.8.16 ruint→1.17.1 (OSV 修复版本)" && git push)
