@@ -1,0 +1,33 @@
+name: python-ci
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: false
+      - uses: actions/setup-python@49933ea5288caeca8642d1e84afbd3f7d6820020 # v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          pip install --upgrade pip
+          pip install -r Quant_Unified/requirements-ci.txt
+      - name: Run Unit Tests
+        env:
+          PYTHONPATH: Quant_Unified
+        run: |
+          cd Quant_Unified
+          find . -name "test_*.py" -not -path "*/node_modules/*" -exec dirname {} \; | sort -u | while read -r d; do
+            echo "::group::unittest discover in $d"
+            python -m unittest discover -s "$d" -p "test_*.py" || exit 1
+            echo "::endgroup::"
+          done
