@@ -1661,11 +1661,11 @@ dependencies = [
 
 [[package]]
 name = "capnpc"
-version = "0.23.2"
+version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f1cd4f042d6725da6245bde08c9e7c74f6fcb2d8bd5e0378e57991be8d711d8"
+checksum = "642d771bf5096ad1963fdbb9839f22e7bb1e308a2d1456fb1ad6cc99bb691115"
 dependencies = [
- "capnp 0.23.2",
+ "capnp 0.24.1",
 ]
 
 [[package]]
@@ -4764,9 +4764,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.16.4"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39"
+checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
 dependencies = [
  "hashbrown 0.16.1",
 ]
