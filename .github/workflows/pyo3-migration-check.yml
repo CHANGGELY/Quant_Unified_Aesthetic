@@ -1,0 +1,36 @@
+name: pyo3 migration feasibility check
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: third_party/nautilus_trader
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - name: Bump pyo3 to 0.29 (experiment, not pushed)
+        run: sed -i 's/pyo3 = { version = "0.27.2"/pyo3 = { version = "0.29.0"/' Cargo.toml
+      - name: cargo update pyo3
+        run: cargo update -p pyo3 || echo "UPDATE_FAILED"
+      - name: cargo check workspace (collect errors)
+        run: |
+          set +e
+          cargo check --workspace --all-targets 2>&1 | tee /tmp/check.log
+          echo "CHECK_EXIT=$?" >> /tmp/check.log
+      - name: Write report to repo
+        if: always()
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          grep -c "^error" /tmp/check.log > /tmp/errcount || true
+          echo "pyo3 0.27→0.29 迁移探测报告 ($(date -u +%FT%TZ))" > pyo3-migration-report.txt
+          echo "错误总数: $(cat /tmp/errcount)" >> pyo3-migration-report.txt
+          echo '--- 前 60 条错误 ---' >> pyo3-migration-report.txt
+          grep "^error" /tmp/check.log | head -60 >> pyo3-migration-report.txt || echo "(无编译错误)" >> pyo3-migration-report.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyo3-migration-report.txt
+          git diff --cached --quiet || (git commit -m "chore: pyo3 迁移可行性探测报告" && git push)
